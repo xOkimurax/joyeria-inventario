@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../api/client';
+import insforge from '../lib/insforge';
 import { Gem } from 'lucide-react';
 
 export default function AuthCallback() {
@@ -9,22 +11,32 @@ export default function AuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    const userStr = searchParams.get('user');
+    const code = searchParams.get('insforge_code');
     const error = searchParams.get('error');
 
-    if (error || !token) {
+    if (error || !code) {
       navigate('/login', { replace: true });
       return;
     }
 
-    try {
-      const user = JSON.parse(decodeURIComponent(userStr));
-      login(token, user);
-      navigate('/dashboard', { replace: true });
-    } catch {
-      navigate('/login', { replace: true });
-    }
+    (async () => {
+      try {
+        const { data, error: exchangeError } = await insforge.auth.exchangeOAuthCode(code);
+        if (exchangeError || !data?.accessToken) {
+          navigate('/login', { replace: true });
+          return;
+        }
+
+        const { data: session } = await api.post('/auth/insforge-callback', {
+          accessToken: data.accessToken,
+        });
+
+        login(session.token, session.user);
+        navigate('/dashboard', { replace: true });
+      } catch {
+        navigate('/login', { replace: true });
+      }
+    })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
