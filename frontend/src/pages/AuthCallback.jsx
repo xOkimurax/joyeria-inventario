@@ -16,36 +16,28 @@ export default function AuthCallback() {
 
     (async () => {
       try {
-        // Wait for the SDK to auto-detect and exchange the OAuth code
+        // Wait for SDK to auto-detect and exchange the OAuth code
         await insforge.auth.authCallbackHandled;
 
-        // getSession() returns { data: { user }, error } — NOT accessToken
-        const { data: sessionData, error: sessionError } = await insforge.auth.getSession();
+        // tokenManager.getSession() is the correct internal API
+        // Returns { accessToken, user } or null
+        const session = insforge.auth.tokenManager.getSession();
 
-        if (sessionError || !sessionData?.user) {
-          console.error('No session after OAuth:', sessionError);
-          navigate('/login', { replace: true });
-          return;
-        }
-
-        // Get the access token via getAccessToken()
-        const accessToken = insforge.auth.getAccessToken();
-
-        if (!accessToken) {
-          console.error('No access token after OAuth');
+        if (!session?.accessToken) {
+          console.error('No session in tokenManager after OAuth');
           navigate('/login', { replace: true });
           return;
         }
 
         // Exchange InsForge token for our local JWT
-        const { data: session } = await api.post('/auth/insforge-callback', {
-          accessToken,
+        const { data: localSession } = await api.post('/auth/insforge-callback', {
+          accessToken: session.accessToken,
         });
 
-        login(session.token, session.user);
+        login(localSession.token, localSession.user);
         navigate('/dashboard', { replace: true });
       } catch (e) {
-        console.error('Auth callback error:', e);
+        console.error('Auth callback error:', e.message);
         navigate('/login', { replace: true });
       }
     })();
