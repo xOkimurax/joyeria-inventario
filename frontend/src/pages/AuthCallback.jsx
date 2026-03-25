@@ -16,20 +16,30 @@ export default function AuthCallback() {
 
     (async () => {
       try {
-        // The InsForge SDK auto-detects and exchanges the OAuth code on init.
-        // Wait for that async process to complete, then read the session.
+        // Wait for the SDK to auto-detect and exchange the OAuth code
         await insforge.auth.authCallbackHandled;
 
-        const { data: sessionData } = await insforge.auth.getSession();
+        // getSession() returns { data: { user }, error } — NOT accessToken
+        const { data: sessionData, error: sessionError } = await insforge.auth.getSession();
 
-        if (!sessionData?.accessToken) {
+        if (sessionError || !sessionData?.user) {
+          console.error('No session after OAuth:', sessionError);
+          navigate('/login', { replace: true });
+          return;
+        }
+
+        // Get the access token via getAccessToken()
+        const accessToken = insforge.auth.getAccessToken();
+
+        if (!accessToken) {
+          console.error('No access token after OAuth');
           navigate('/login', { replace: true });
           return;
         }
 
         // Exchange InsForge token for our local JWT
         const { data: session } = await api.post('/auth/insforge-callback', {
-          accessToken: sessionData.accessToken,
+          accessToken,
         });
 
         login(session.token, session.user);
