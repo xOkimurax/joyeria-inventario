@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import AuthCallback from './pages/AuthCallback';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
 import Sales from './pages/Sales';
@@ -35,6 +36,7 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />

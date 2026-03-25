@@ -82,6 +82,10 @@ export async function runMigrations() {
       )
     `);
 
+    // Google OAuth support
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE`);
+    await client.query(`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`);
+
     // Seed default categories if none exist
     const { rows } = await client.query('SELECT COUNT(*) FROM categories');
     if (parseInt(rows[0].count) === 0) {

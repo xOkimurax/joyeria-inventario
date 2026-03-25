@@ -20,6 +20,10 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Serve uploaded images
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
+app.use('/uploads', express.static(UPLOAD_DIR));
+
 app.use(cors({
   origin: process.env.FRONTEND_URL || '*',
   credentials: true,

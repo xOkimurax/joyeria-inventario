@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
-import { Plus, Search, Edit2, Trash2, Filter, X, Package, Image } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Filter, X, Package, Image, Upload } from 'lucide-react';
 
 const EMPTY_FORM = {
   name: '', description: '', category_id: '', type: '',
@@ -22,6 +22,9 @@ export default function Inventory() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [imagePreview, setImagePreview] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const [filters, setFilters] = useState({
     search: '', category_id: '', supplier_id: '',
@@ -56,14 +59,39 @@ export default function Inventory() {
     });
   }, []);
 
+  const handleImageSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    // Local preview
+    setImagePreview(URL.createObjectURL(file));
+    // Upload immediately
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const { data } = await api.post('/products/upload-image', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setForm(f => ({ ...f, image_url: data.url }));
+      toast.success('Imagen subida');
+    } catch {
+      toast.error('Error al subir imagen');
+      setImagePreview('');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const openCreate = () => {
     setEditItem(null);
     setForm(EMPTY_FORM);
+    setImagePreview('');
     setModalOpen(true);
   };
 
   const openEdit = (p) => {
     setEditItem(p);
+    setImagePreview(p.image_url || '');
     setForm({
       name: p.name || '',
       description: p.description || '',
@@ -362,9 +390,46 @@ export default function Inventory() {
                 placeholder="Código único" className="input-field" />
             </div>
             <div className="sm:col-span-2">
-              <label className="label">URL de imagen</label>
-              <input type="url" value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))}
-                placeholder="https://..." className="input-field" />
+              <label className="label">Imagen del producto</label>
+              <div className="flex items-start gap-4">
+                {/* Preview */}
+                <div className="w-20 h-20 rounded-xl border border-surface-300 bg-surface-200 flex items-center justify-center shrink-0 overflow-hidden">
+                  {imagePreview ? (
+                    <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <Image size={24} className="text-gray-600" />
+                  )}
+                </div>
+                {/* Upload button */}
+                <div className="flex-1 flex flex-col gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageSelect}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="btn-secondary justify-center"
+                  >
+                    <Upload size={15} />
+                    {uploading ? 'Subiendo...' : imagePreview ? 'Cambiar imagen' : 'Subir imagen'}
+                  </button>
+                  {imagePreview && (
+                    <button
+                      type="button"
+                      onClick={() => { setImagePreview(''); setForm(f => ({ ...f, image_url: '' })); }}
+                      className="text-xs text-gray-600 hover:text-red-400 transition-colors text-left"
+                    >
+                      Quitar imagen
+                    </button>
+                  )}
+                  <p className="text-xs text-gray-600">JPG, PNG, WebP · máx. 5 MB</p>
+                </div>
+              </div>
             </div>
           </div>
           <div className="flex gap-3 pt-2">

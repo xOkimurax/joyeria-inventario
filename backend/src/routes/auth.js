@@ -182,6 +182,104 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// GET /api/auth/google — redirect to Google OAuth consent screen
+router.get('/google', (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return res.status(503).json({ error: 'Google OAuth no está configurado' });
+  }
+  const params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    redirect_uri: `${process.env.APP_URL}/api/auth/google/callback`,
+    response_type: 'code',
+    scope: 'openid email profile',
+    access_type: 'offline',
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+// GET /api/auth/google/callback
+router.get('/google/callback', async (req, res) => {
+  const { code, error: oauthError } = req.query;
+  const frontendUrl = process.env.APP_URL || 'http://localhost:5173';
+
+  if (oauthError || !code) {
+    return res.redirect(`${frontendUrl}/login?error=oauth_cancelled`);
+  }
+
+  try {
+    // Exchange authorization code for access token
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: `${process.env.APP_URL}/api/auth/google/callback`,
+        grant_type: 'authorization_code',
+      }),
+    });
+    const tokenData = await tokenRes.json();
+
+    if (!tokenData.access_token) {
+      console.error('Google token exchange failed:', tokenData);
+      return res.redirect(`${frontendUrl}/login?error=oauth_failed`);
+    }
+
+    // Get user profile from Google
+    const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const googleUser = await profileRes.json();
+
+    if (!googleUser.id || !googleUser.email) {
+      return res.redirect(`${frontendUrl}/login?error=oauth_failed`);
+    }
+
+    // Find existing user by google_id or email
+    const existing = await pool.query(
+      'SELECT id, username, email, google_id FROM users WHERE google_id = $1 OR (email = $2 AND email IS NOT NULL)',
+      [googleUser.id, googleUser.email]
+    );
+
+    let user;
+    if (existing.rows.length > 0) {
+      user = existing.rows[0];
+      // Link google_id if account was previously email/password only
+      if (!user.google_id) {
+        await pool.query('UPDATE users SET google_id = $1 WHERE id = $2', [googleUser.id, user.id]);
+      }
+    } else {
+      // Create new user — derive a unique username from email
+      const base = googleUser.email.split('@')[0].replace(/[^a-z0-9_]/gi, '').toLowerCase().slice(0, 20);
+      const suffix = Math.random().toString(36).slice(2, 6);
+      const username = `${base}_${suffix}`;
+      const { rows } = await pool.query(
+        'INSERT INTO users (username, password_hash, email, google_id) VALUES ($1, NULL, $2, $3) RETURNING id, username, email',
+        [username, googleUser.email, googleUser.id]
+      );
+      user = rows[0];
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const userParam = encodeURIComponent(JSON.stringify({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+    }));
+
+    res.redirect(`${frontendUrl}/auth/callback?token=${token}&user=${userParam}`);
+  } catch (err) {
+    console.error('Google OAuth error:', err);
+    res.redirect(`${frontendUrl}/login?error=oauth_failed`);
+  }
+});
+
 // GET /api/auth/me
 router.get('/me', authMiddleware, async (req, res) => {
   try {

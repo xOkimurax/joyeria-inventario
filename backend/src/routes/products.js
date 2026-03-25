@@ -1,8 +1,39 @@
 import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import pool from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// Multer config for image uploads
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `product-${Date.now()}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Solo se permiten imágenes'));
+  },
+});
+
+// POST /api/products/upload-image  (before authMiddleware so multer runs first)
+router.post('/upload-image', authMiddleware, upload.single('image'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No se recibió imagen' });
+  res.json({ url: `/uploads/${req.file.filename}` });
+});
+
 router.use(authMiddleware);
 
 // GET /api/products
