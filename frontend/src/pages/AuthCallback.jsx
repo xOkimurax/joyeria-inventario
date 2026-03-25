@@ -1,39 +1,41 @@
-import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/client';
 import insforge from '../lib/insforge';
 import { Gem } from 'lucide-react';
 
 export default function AuthCallback() {
-  const [searchParams] = useSearchParams();
   const { login } = useAuth();
   const navigate = useNavigate();
+  const handled = useRef(false);
 
   useEffect(() => {
-    const code = searchParams.get('insforge_code');
-    const error = searchParams.get('error');
-
-    if (error || !code) {
-      navigate('/login', { replace: true });
-      return;
-    }
+    if (handled.current) return;
+    handled.current = true;
 
     (async () => {
       try {
-        const { data, error: exchangeError } = await insforge.auth.exchangeOAuthCode(code);
-        if (exchangeError || !data?.accessToken) {
+        // The InsForge SDK auto-detects and exchanges the OAuth code on init.
+        // Wait for that async process to complete, then read the session.
+        await insforge.auth.authCallbackHandled;
+
+        const { data: sessionData } = await insforge.auth.getSession();
+
+        if (!sessionData?.accessToken) {
           navigate('/login', { replace: true });
           return;
         }
 
+        // Exchange InsForge token for our local JWT
         const { data: session } = await api.post('/auth/insforge-callback', {
-          accessToken: data.accessToken,
+          accessToken: sessionData.accessToken,
         });
 
         login(session.token, session.user);
         navigate('/dashboard', { replace: true });
-      } catch {
+      } catch (e) {
+        console.error('Auth callback error:', e);
         navigate('/login', { replace: true });
       }
     })();
