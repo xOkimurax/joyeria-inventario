@@ -2,12 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
-import GuaraniInput from '../components/GuaraniInput';
-import { Plus, ShoppingCart, Trash2, Search, Calendar } from 'lucide-react';
+import { Plus, ShoppingCart, Trash2, Calendar, Search, Minus, PackageSearch } from 'lucide-react';
 
-const EMPTY_FORM = {
-  product_id: '', quantity: '1', unit_price: '', client_name: '', notes: '',
-};
+const EMPTY_FORM = { client_name: '', notes: '' };
 
 export default function Sales() {
   const [sales, setSales] = useState([]);
@@ -19,7 +16,12 @@ export default function Sales() {
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
+
+  // Cart state
+  const [cartItems, setCartItems] = useState([]);       // confirmed items
+  const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [cartDraft, setCartDraft] = useState([]);        // in-progress inside picker
+  const [cartSearch, setCartSearch] = useState('');
 
   const [filters, setFilters] = useState({ from: '', to: '', page: 1 });
 
@@ -45,22 +47,69 @@ export default function Sales() {
     api.get('/products', { params: { limit: 500 } }).then(({ data }) => setProducts(data.products));
   }, []);
 
-  const onProductChange = (e) => {
-    const pid = e.target.value;
-    const prod = products.find(p => p.id === parseInt(pid));
-    setSelectedProduct(prod || null);
-    setForm(f => ({ ...f, product_id: pid, unit_price: prod ? String(Math.round(prod.sale_price || 0)) : '' }));
+  // --- Cart picker ---
+  const openCartModal = () => {
+    setCartDraft(cartItems.map(i => ({ ...i })));
+    setCartSearch('');
+    setCartModalOpen(true);
   };
 
+  const draftQty = (productId) => cartDraft.find(i => i.product.id === productId)?.quantity || 0;
+
+  const addToDraft = (product) => {
+    setCartDraft(d => {
+      const exists = d.find(i => i.product.id === product.id);
+      if (exists) return d.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...d, { product, quantity: 1 }];
+    });
+  };
+
+  const updateDraftQty = (productId, delta) => {
+    setCartDraft(d => d.flatMap(i => {
+      if (i.product.id !== productId) return [i];
+      const newQty = i.quantity + delta;
+      return newQty <= 0 ? [] : [{ ...i, quantity: newQty }];
+    }));
+  };
+
+  const confirmCart = () => {
+    setCartItems(cartDraft);
+    setCartModalOpen(false);
+  };
+
+  const cancelCart = () => {
+    setCartDraft([]);
+    setCartModalOpen(false);
+  };
+
+  const filteredProducts = products.filter(p =>
+    p.name.toLowerCase().includes(cartSearch.toLowerCase())
+  );
+
+  const cartTotal = cartItems.reduce((sum, i) => sum + (parseFloat(i.product.sale_price || 0) * i.quantity), 0);
+
+  // --- Save ---
   const handleSave = async (e) => {
     e.preventDefault();
+    if (cartItems.length === 0) {
+      toast.error('Selecciona al menos un producto');
+      return;
+    }
     setSaving(true);
     try {
-      await api.post('/sales', form);
+      await Promise.all(cartItems.map(item =>
+        api.post('/sales', {
+          product_id: item.product.id,
+          quantity: item.quantity,
+          unit_price: Math.round(parseFloat(item.product.sale_price || 0)),
+          client_name: form.client_name || null,
+          notes: form.notes || null,
+        })
+      ));
       toast.success('Venta registrada');
       setModalOpen(false);
       setForm(EMPTY_FORM);
-      setSelectedProduct(null);
+      setCartItems([]);
       fetchSales();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Error al registrar venta');
@@ -92,7 +141,7 @@ export default function Sales() {
           <h1 className="font-serif text-2xl font-semibold text-cream">Ventas</h1>
           <p className="text-gray-500 text-sm mt-0.5">{total} transacciones</p>
         </div>
-        <button onClick={() => { setForm(EMPTY_FORM); setSelectedProduct(null); setModalOpen(true); }}
+        <button onClick={() => { setForm(EMPTY_FORM); setCartItems([]); setModalOpen(true); }}
           className="btn-primary">
           <Plus size={16} />
           <span className="hidden sm:inline">Nueva venta</span>
@@ -197,60 +246,44 @@ export default function Sales() {
       {/* New sale modal */}
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Registrar venta" size="md">
         <form onSubmit={handleSave} className="p-6 space-y-4">
+
+          {/* Product selector button */}
           <div>
-            <label className="label">Producto *</label>
-            <select value={form.product_id} onChange={onProductChange}
-              required className="input-field">
-              <option value="">Seleccionar producto...</option>
-              {products.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} — Stock: {p.stock} — {fmt(p.sale_price)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {selectedProduct && (
-            <div className="bg-surface-100 border border-surface-300 rounded-lg p-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Stock disponible</span>
-                <span className={`font-semibold ${selectedProduct.stock <= selectedProduct.min_stock ? 'text-amber-400' : 'text-green-400'}`}>
-                  {selectedProduct.stock} uds.
+            <label className="label">Productos *</label>
+            <button type="button" onClick={openCartModal}
+              className="w-full flex items-center gap-2 px-4 py-2.5 bg-surface-50 border border-surface-200 hover:border-gold-500/50 rounded-lg text-sm text-gray-400 hover:text-cream transition-all">
+              <PackageSearch size={16} />
+              Seleccionar productos
+              {cartItems.length > 0 && (
+                <span className="ml-auto bg-gold-500/20 text-gold-400 text-xs font-semibold px-2 py-0.5 rounded-full">
+                  {cartItems.length} {cartItems.length === 1 ? 'producto' : 'productos'}
                 </span>
-              </div>
-              {selectedProduct.category_name && (
-                <div className="flex justify-between mt-1">
-                  <span className="text-gray-500">Categoría</span>
-                  <span className="text-gray-300">{selectedProduct.category_name}</span>
-                </div>
               )}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Cantidad *</label>
-              <input type="number" min="1" value={form.quantity}
-                onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
-                required className="input-field" />
-            </div>
-            <div>
-              <label className="label">Precio unitario</label>
-              <GuaraniInput
-                value={form.unit_price}
-                onChange={v => setForm(f => ({ ...f, unit_price: v }))}
-                placeholder="Precio de venta"
-                className="input-field"
-              />
-            </div>
+            </button>
           </div>
 
-          {form.product_id && form.quantity && (
-            <div className="bg-gold-500/10 border border-gold-500/30 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 mb-0.5">Total estimado</p>
-              <p className="text-xl font-bold text-gold-400">
-                {fmt((parseFloat(form.unit_price) || 0) * parseInt(form.quantity || 0))}
-              </p>
+          {/* Cart items list */}
+          {cartItems.length > 0 && (
+            <div className="space-y-2">
+              {cartItems.map(({ product, quantity }) => {
+                const subtotal = parseFloat(product.sale_price || 0) * quantity;
+                return (
+                  <div key={product.id}
+                    className="flex items-center justify-between bg-surface-100 border border-surface-300 rounded-lg px-3 py-2 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-cream truncate">{product.name}</p>
+                      <p className="text-xs text-gray-500">{fmt(product.sale_price)} × {quantity}</p>
+                    </div>
+                    <p className="font-semibold text-gold-400 ml-3 whitespace-nowrap">{fmt(subtotal)}</p>
+                  </div>
+                );
+              })}
+
+              {/* Total */}
+              <div className="bg-gold-500/10 border border-gold-500/30 rounded-lg p-3 flex items-center justify-between">
+                <p className="text-sm text-gray-400">Total</p>
+                <p className="text-xl font-bold text-gold-400">{fmt(cartTotal)}</p>
+              </div>
             </div>
           )}
 
@@ -270,11 +303,85 @@ export default function Sales() {
             <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary flex-1 justify-center">
               Cancelar
             </button>
-            <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
+            <button type="submit" disabled={saving || cartItems.length === 0} className="btn-primary flex-1 justify-center">
               {saving ? 'Registrando...' : 'Registrar venta'}
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Product picker modal */}
+      <Modal isOpen={cartModalOpen} onClose={cancelCart} title="Seleccionar productos" size="md">
+        <div className="flex flex-col" style={{ maxHeight: '70vh' }}>
+          {/* Search */}
+          <div className="px-6 pt-4 pb-3 border-b border-surface-200">
+            <div className="relative">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                type="text"
+                value={cartSearch}
+                onChange={e => setCartSearch(e.target.value)}
+                placeholder="Buscar producto..."
+                className="input-field pl-9"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          {/* Product list */}
+          <div className="flex-1 overflow-y-auto px-6 py-3 space-y-2">
+            {filteredProducts.length === 0 ? (
+              <p className="text-center text-gray-600 py-8">No se encontraron productos</p>
+            ) : filteredProducts.map(product => {
+              const qty = draftQty(product.id);
+              return (
+                <div key={product.id}
+                  className="flex items-center justify-between bg-surface-100 border border-surface-300 rounded-lg px-3 py-2.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-cream text-sm truncate">{product.name}</p>
+                    <div className="flex gap-3 mt-0.5">
+                      <span className="text-xs text-gold-400">{fmt(product.sale_price)}</span>
+                      <span className={`text-xs ${product.stock <= (product.min_stock || 0) ? 'text-amber-400' : 'text-gray-500'}`}>
+                        Stock: {product.stock}
+                      </span>
+                    </div>
+                  </div>
+
+                  {qty === 0 ? (
+                    <button type="button" onClick={() => addToDraft(product)}
+                      disabled={product.stock === 0}
+                      className="ml-3 px-3 py-1 text-xs font-semibold bg-gold-500/20 text-gold-400 hover:bg-gold-500/30 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                      Añadir
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 ml-3">
+                      <button type="button" onClick={() => updateDraftQty(product.id, -1)}
+                        className="p-1 rounded-lg bg-surface-200 hover:bg-surface-300 text-gray-300 transition-all">
+                        <Minus size={13} />
+                      </button>
+                      <span className="text-sm font-semibold text-cream w-5 text-center">{qty}</span>
+                      <button type="button" onClick={() => updateDraftQty(product.id, +1)}
+                        disabled={qty >= product.stock}
+                        className="p-1 rounded-lg bg-surface-200 hover:bg-surface-300 text-gray-300 transition-all disabled:opacity-40">
+                        <Plus size={13} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4 border-t border-surface-200 flex gap-3">
+            <button type="button" onClick={cancelCart} className="btn-secondary flex-1 justify-center">
+              Cancelar
+            </button>
+            <button type="button" onClick={confirmCart} className="btn-primary flex-1 justify-center">
+              Listo {cartDraft.length > 0 && `(${cartDraft.length})`}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* Delete confirm */}
