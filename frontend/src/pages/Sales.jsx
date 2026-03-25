@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
+import GuaraniInput from '../components/GuaraniInput';
 import { Plus, ShoppingCart, Trash2, Search, Calendar } from 'lucide-react';
 
 const EMPTY_FORM = {
@@ -48,7 +49,7 @@ export default function Sales() {
     const pid = e.target.value;
     const prod = products.find(p => p.id === parseInt(pid));
     setSelectedProduct(prod || null);
-    setForm(f => ({ ...f, product_id: pid, unit_price: prod?.sale_price || '' }));
+    setForm(f => ({ ...f, product_id: pid, unit_price: prod ? String(Math.round(prod.sale_price || 0)) : '' }));
   };
 
   const handleSave = async (e) => {
@@ -79,7 +80,7 @@ export default function Sales() {
     }
   };
 
-  const fmt = (n) => `$${parseFloat(n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}`;
+  const fmt = (n) => `₲ ${parseInt(n || 0).toLocaleString('es-PY')}`;
   const fmtDate = (d) => new Date(d).toLocaleDateString('es-ES', { dateStyle: 'short' });
   const fmtTime = (d) => new Date(d).toLocaleTimeString('es-ES', { timeStyle: 'short' });
 
@@ -108,7 +109,7 @@ export default function Sales() {
         <div className="card">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Promedio por venta</p>
           <p className="text-2xl font-bold text-cream mt-1">
-            {total > 0 ? fmt(grandTotal / total) : '$0.00'}
+            {total > 0 ? fmt(grandTotal / total) : '₲ 0'}
           </p>
           <p className="text-xs text-gray-600">por transacción</p>
         </div>
@@ -235,9 +236,12 @@ export default function Sales() {
             </div>
             <div>
               <label className="label">Precio unitario</label>
-              <input type="number" step="0.01" min="0" value={form.unit_price}
-                onChange={e => setForm(f => ({ ...f, unit_price: e.target.value }))}
-                placeholder="Precio de venta" className="input-field" />
+              <GuaraniInput
+                value={form.unit_price}
+                onChange={v => setForm(f => ({ ...f, unit_price: v }))}
+                placeholder="Precio de venta"
+                className="input-field"
+              />
             </div>
           </div>
 

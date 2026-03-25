@@ -52,10 +52,10 @@ export default function Dashboard() {
 
     const summaryData = [
       ['Stock Total', metrics.total_stock.toString()],
-      ['Ventas Hoy', `$${metrics.sales_today.total.toLocaleString('es-ES', { minimumFractionDigits: 2 })}`],
-      ['Ventas del Mes', `$${metrics.sales_month.total.toLocaleString('es-ES', { minimumFractionDigits: 2 })}`],
-      ['Valor Inventario (Compra)', `$${metrics.inventory_value.purchase.toLocaleString('es-ES', { minimumFractionDigits: 2 })}`],
-      ['Valor Inventario (Venta)', `$${metrics.inventory_value.sale.toLocaleString('es-ES', { minimumFractionDigits: 2 })}`],
+      ['Ventas Hoy', `\u20b2 ${parseInt(metrics.sales_today.total).toLocaleString('es-PY')}`],
+      ['Ventas del Mes', `\u20b2 ${parseInt(metrics.sales_month.total).toLocaleString('es-PY')}`],
+      ['Valor Inventario (Compra)', `\u20b2 ${parseInt(metrics.inventory_value.purchase).toLocaleString('es-PY')}`],
+      ['Valor Inventario (Venta)', `\u20b2 ${parseInt(metrics.inventory_value.sale).toLocaleString('es-PY')}`],
     ];
 
     doc.autoTable({
@@ -82,7 +82,7 @@ export default function Dashboard() {
         head: [['Producto', 'Stock', 'Mínimo', 'Precio Venta']],
         body: metrics.low_stock_products.map(p => [
           p.name, p.stock, p.min_stock,
-          `$${parseFloat(p.sale_price).toLocaleString('es-ES', { minimumFractionDigits: 2 })}`,
+          `\u20b2 ${parseInt(p.sale_price).toLocaleString('es-PY')}`,
         ]),
         theme: 'grid',
         headStyles: { fillColor: [180, 50, 50], textColor: [255, 255, 255], fontStyle: 'bold' },
@@ -105,7 +105,7 @@ export default function Dashboard() {
         head: [['Producto', 'Unidades', 'Ingresos']],
         body: metrics.top_products.map(p => [
           p.product_name, p.total_qty,
-          `$${parseFloat(p.total_revenue).toLocaleString('es-ES', { minimumFractionDigits: 2 })}`,
+          `\u20b2 ${parseInt(p.total_revenue).toLocaleString('es-PY')}`,
         ]),
         theme: 'grid',
         headStyles: { fillColor: [201, 168, 76], textColor: [13, 13, 13], fontStyle: 'bold' },
@@ -117,7 +117,7 @@ export default function Dashboard() {
     toast.success('Reporte exportado');
   };
 
-  const fmt = (n) => `$${(n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}`;
+  const fmt = (n) => `₲ ${parseInt(n || 0).toLocaleString('es-PY')}`;
 
   if (loading) {
     return (

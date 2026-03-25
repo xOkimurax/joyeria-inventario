@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
+import GuaraniInput from '../components/GuaraniInput';
 import { Plus, Search, Edit2, Trash2, Filter, X, Package, Image, Upload } from 'lucide-react';
 
 const EMPTY_FORM = {
@@ -150,7 +151,7 @@ export default function Inventory() {
   const clearFilters = () => setFilters({ search: '', category_id: '', supplier_id: '', type: '', min_price: '', max_price: '', low_stock: false, page: 1 });
   const activeFilters = Object.values({ ...filters, search: '', page: 1 }).some(Boolean);
 
-  const fmt = (n) => `$${parseFloat(n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}`;
+  const fmt = (n) => `₲ ${parseInt(n || 0).toLocaleString('es-PY')}`;
 
   return (
     <div className="space-y-6">
@@ -218,13 +219,13 @@ export default function Inventory() {
           </div>
           <div>
             <label className="label">Precio mín.</label>
-            <input type="number" value={filters.min_price} onChange={e => setFilter('min_price', e.target.value)}
+            <GuaraniInput value={filters.min_price} onChange={v => setFilter('min_price', v)}
               placeholder="0" className="input-field" />
           </div>
           <div>
             <label className="label">Precio máx.</label>
-            <input type="number" value={filters.max_price} onChange={e => setFilter('max_price', e.target.value)}
-              placeholder="999999" className="input-field" />
+            <GuaraniInput value={filters.max_price} onChange={v => setFilter('max_price', v)}
+              placeholder="999.999.999" className="input-field" />
           </div>
           <div className="flex items-center gap-2 col-span-2 sm:col-span-1">
             <input type="checkbox" id="low_stock" checked={filters.low_stock}
@@ -354,15 +355,22 @@ export default function Inventory() {
             </div>
             <div>
               <label className="label">Precio de compra</label>
-              <input type="number" step="0.01" min="0" value={form.purchase_price}
-                onChange={e => setForm(f => ({ ...f, purchase_price: e.target.value }))}
-                placeholder="0.00" className="input-field" />
+              <GuaraniInput
+                value={form.purchase_price}
+                onChange={v => setForm(f => ({ ...f, purchase_price: v }))}
+                placeholder="0"
+                className="input-field"
+              />
             </div>
             <div>
               <label className="label">Precio de venta *</label>
-              <input type="number" step="0.01" min="0" value={form.sale_price}
-                onChange={e => setForm(f => ({ ...f, sale_price: e.target.value }))}
-                required placeholder="0.00" className="input-field" />
+              <GuaraniInput
+                value={form.sale_price}
+                onChange={v => setForm(f => ({ ...f, sale_price: v }))}
+                required
+                placeholder="0"
+                className="input-field"
+              />
             </div>
             <div>
               <label className="label">Stock</label>
