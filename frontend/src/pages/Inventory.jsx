@@ -171,7 +171,7 @@ export default function Inventory() {
   const clearFilters = () => setFilters({ search: '', category_id: '', supplier_id: '', type: '', min_price: '', max_price: '', low_stock: false, page: 1 });
   const activeFilters = Object.values({ ...filters, search: '', page: 1 }).some(Boolean);
 
-  const fmt = (n) => `₲ ${parseInt(n || 0).toLocaleString('es-PY')}`;
+  const fmt = (n) => `₲ ${new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(parseInt(n || 0))}`;
 
   return (
     <div className="space-y-6">

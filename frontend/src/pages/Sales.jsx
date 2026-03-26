@@ -132,7 +132,7 @@ export default function Sales() {
     }
   };
 
-  const fmt = (n) => `₲ ${parseInt(n || 0).toLocaleString('es-PY')}`;
+  const fmt = (n) => `₲ ${new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(parseInt(n || 0))}`;
   const fmtDate = (d) => new Date(d).toLocaleDateString('es-ES', { dateStyle: 'short' });
   const fmtTime = (d) => new Date(d).toLocaleTimeString('es-ES', { timeStyle: 'short' });
 

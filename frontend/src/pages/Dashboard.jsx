@@ -4,7 +4,7 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import toast from 'react-hot-toast';
 import {
-  Package, TrendingUp, AlertTriangle, DollarSign,
+  Package, TrendingUp, AlertTriangle, Wallet,
   FileDown, RefreshCw, BarChart3,
 } from 'lucide-react';
 
@@ -25,6 +25,12 @@ export default function Dashboard() {
   };
 
   useEffect(() => { fetchMetrics(); }, []);
+
+  useEffect(() => {
+    const handleVisibility = () => { if (document.visibilityState === 'visible') fetchMetrics(); };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
 
   const exportPDF = () => {
     if (!metrics) return;
@@ -52,10 +58,10 @@ export default function Dashboard() {
 
     const summaryData = [
       ['Stock Total', metrics.total_stock.toString()],
-      ['Ventas Hoy', `\u20b2 ${parseInt(metrics.sales_today.total).toLocaleString('es-PY')}`],
-      ['Ventas del Mes', `\u20b2 ${parseInt(metrics.sales_month.total).toLocaleString('es-PY')}`],
-      ['Valor Inventario (Compra)', `\u20b2 ${parseInt(metrics.inventory_value.purchase).toLocaleString('es-PY')}`],
-      ['Valor Inventario (Venta)', `\u20b2 ${parseInt(metrics.inventory_value.sale).toLocaleString('es-PY')}`],
+      ['Ventas Hoy', fmt(metrics.sales_today.total)],
+      ['Ventas del Mes', fmt(metrics.sales_month.total)],
+      ['Valor Inventario (Compra)', fmt(metrics.inventory_value.purchase)],
+      ['Valor Inventario (Venta)', fmt(metrics.inventory_value.sale)],
     ];
 
     doc.autoTable({
@@ -82,7 +88,7 @@ export default function Dashboard() {
         head: [['Producto', 'Stock', 'Mínimo', 'Precio Venta']],
         body: metrics.low_stock_products.map(p => [
           p.name, p.stock, p.min_stock,
-          `\u20b2 ${parseInt(p.sale_price).toLocaleString('es-PY')}`,
+          fmt(p.sale_price),
         ]),
         theme: 'grid',
         headStyles: { fillColor: [180, 50, 50], textColor: [255, 255, 255], fontStyle: 'bold' },
@@ -105,7 +111,7 @@ export default function Dashboard() {
         head: [['Producto', 'Unidades', 'Ingresos']],
         body: metrics.top_products.map(p => [
           p.product_name, p.total_qty,
-          `\u20b2 ${parseInt(p.total_revenue).toLocaleString('es-PY')}`,
+          fmt(p.total_revenue),
         ]),
         theme: 'grid',
         headStyles: { fillColor: [201, 168, 76], textColor: [13, 13, 13], fontStyle: 'bold' },
@@ -117,7 +123,7 @@ export default function Dashboard() {
     toast.success('Reporte exportado');
   };
 
-  const fmt = (n) => `₲ ${parseInt(n || 0).toLocaleString('es-PY')}`;
+  const fmt = (n) => `₲ ${new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(parseInt(n || 0))}`;
 
   if (loading) {
     return (
@@ -174,7 +180,7 @@ export default function Dashboard() {
           color="blue"
         />
         <MetricCard
-          icon={<DollarSign size={22} className="text-purple-400" />}
+          icon={<Wallet size={22} className="text-purple-400" />}
           label="Valor Inventario"
           value={fmt(metrics?.inventory_value?.sale)}
           sub={`Costo: ${fmt(metrics?.inventory_value?.purchase)}`}

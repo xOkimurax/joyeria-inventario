@@ -6,7 +6,7 @@
  */
 export default function GuaraniInput({ value, onChange, className = '', ...props }) {
   const formatted = value !== '' && value !== undefined && value !== null
-    ? Number(value).toLocaleString('es-PY')
+    ? new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(parseInt(value))
     : '';
 
   const handleChange = (e) => {
