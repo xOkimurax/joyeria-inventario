@@ -63,19 +63,19 @@ router.delete('/account', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Delete all related data in order
-    await client.query('DELETE FROM sale_items WHERE sale_id IN (SELECT id FROM sales WHERE user_id = $1)', [req.user.id]);
-    await client.query('DELETE FROM sales WHERE user_id = $1', [req.user.id]);
-    await client.query('DELETE FROM products WHERE user_id = $1', [req.user.id]);
-    await client.query('DELETE FROM categories WHERE user_id = $1', [req.user.id]);
-    await client.query('DELETE FROM suppliers WHERE user_id = $1', [req.user.id]);
+    // Tables have no user_id — data is shared, delete everything
+    await client.query('DELETE FROM sales');
+    await client.query('DELETE FROM products');
+    await client.query('DELETE FROM categories');
+    await client.query('DELETE FROM suppliers');
+    await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [req.user.id]);
     await client.query('DELETE FROM users WHERE id = $1', [req.user.id]);
 
     await client.query('COMMIT');
     res.json({ message: 'Cuenta eliminada correctamente' });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error(err);
+    console.error('Delete account error:', err);
     res.status(500).json({ error: 'Error al eliminar la cuenta' });
   } finally {
     client.release();
