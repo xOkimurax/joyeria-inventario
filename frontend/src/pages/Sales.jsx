@@ -279,20 +279,40 @@ export default function Sales() {
                 const subtotal = parseFloat(product.sale_price || 0) * quantity;
                 return (
                   <div key={product.id}
-                    className="flex items-center justify-between bg-surface-100 border border-surface-300 rounded-lg px-3 py-2 text-sm">
+                    className="flex items-center gap-2 bg-surface-100 border border-surface-300 rounded-lg px-3 py-2 text-sm">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-cream truncate">{product.name}</p>
-                      <p className="text-xs text-gray-500">{fmt(product.sale_price)} × {quantity}</p>
+                      <p className="text-xs text-gold-400 font-semibold">{fmt(subtotal)}</p>
                     </div>
-                    <div className="flex items-center gap-2 ml-3">
-                      <p className="font-semibold text-gold-400 whitespace-nowrap">{fmt(subtotal)}</p>
+                    {/* Quantity controls */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setCartItems(items => items.flatMap(i =>
+                          i.product.id !== product.id ? [i]
+                          : i.quantity <= 1 ? [] : [{ ...i, quantity: i.quantity - 1 }]
+                        ))}
+                        className="w-6 h-6 rounded flex items-center justify-center text-gray-400 hover:text-cream hover:bg-surface-300 transition-colors"
+                      >
+                        <Minus size={12} />
+                      </button>
+                      <span className="w-6 text-center text-xs font-semibold text-cream">{quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => setCartItems(items => items.map(i =>
+                          i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
+                        ))}
+                        className="w-6 h-6 rounded flex items-center justify-center text-gray-400 hover:text-cream hover:bg-surface-300 transition-colors"
+                      >
+                        <Plus size={12} />
+                      </button>
                       <button
                         type="button"
                         onClick={() => setCartItems(items => items.filter(i => i.product.id !== product.id))}
-                        className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        className="w-6 h-6 ml-1 rounded flex items-center justify-center text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                         title="Quitar producto"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={12} />
                       </button>
                     </div>
                   </div>
