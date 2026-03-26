@@ -2,13 +2,30 @@ import { useState } from 'react';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
-import { Lock, Mail, Shield, User } from 'lucide-react';
+import { Lock, Mail, Shield, User, Trash2, AlertTriangle } from 'lucide-react';
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const [pwForm, setPwForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
   const [pwSaving, setPwSaving] = useState(false);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'ELIMINAR') return;
+    setDeleting(true);
+    try {
+      await api.delete('/settings/account');
+      toast.success('Cuenta eliminada');
+      logout();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error al eliminar la cuenta');
+      setDeleting(false);
+    }
+  };
 
   const [emailForm, setEmailForm] = useState({ email: user?.email || '' });
   const [emailSaving, setEmailSaving] = useState(false);
@@ -184,6 +201,85 @@ export default function Settings() {
           </li>
         </ul>
       </div>
+
+      {/* Danger zone */}
+      <div className="card border border-red-500/30 bg-red-500/5">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="p-2 bg-red-500/10 rounded-lg">
+            <Trash2 size={18} className="text-red-400" />
+          </div>
+          <h2 className="font-semibold text-red-400">Zona de peligro</h2>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          Eliminar tu cuenta es una acción permanente. Se borrarán todos los productos, ventas, categorías y proveedores asociados a tu cuenta.
+        </p>
+        <button
+          onClick={() => { setShowDeleteModal(true); setDeleteConfirm(''); }}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-colors"
+        >
+          <Trash2 size={15} />
+          Eliminar cuenta
+        </button>
+      </div>
+
+      {/* Delete confirmation modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-surface-200 border border-red-500/40 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-500/15 rounded-lg shrink-0">
+                <AlertTriangle size={22} className="text-red-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-red-400 text-lg">¿Eliminar cuenta?</h3>
+                <p className="text-xs text-gray-500">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 space-y-1">
+              <p className="text-sm text-red-300 font-medium">Se eliminará permanentemente:</p>
+              <ul className="text-sm text-gray-400 space-y-0.5 ml-2">
+                <li>• Tu cuenta y datos de acceso</li>
+                <li>• Todo el inventario de productos</li>
+                <li>• Todo el historial de ventas</li>
+                <li>• Categorías y proveedores</li>
+              </ul>
+            </div>
+
+            <div>
+              <label className="label text-sm">
+                Escribí <span className="text-red-400 font-bold">ELIMINAR</span> para confirmar
+              </label>
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={e => setDeleteConfirm(e.target.value)}
+                placeholder="ELIMINAR"
+                className="input-field mt-1 border-red-500/30 focus:border-red-500/60"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 btn-secondary"
+                disabled={deleting}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirm !== 'ELIMINAR' || deleting}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+              >
+                <Trash2 size={15} />
+                {deleting ? 'Eliminando...' : 'Eliminar todo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
