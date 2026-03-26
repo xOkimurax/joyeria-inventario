@@ -288,9 +288,8 @@ export default function Sales() {
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
-                        onClick={() => setCartItems(items => items.flatMap(i =>
-                          i.product.id !== product.id ? [i]
-                          : i.quantity <= 1 ? [] : [{ ...i, quantity: i.quantity - 1 }]
+                        onClick={() => setCartItems(items => items.map(i =>
+                          i.product.id === product.id ? { ...i, quantity: Math.max(1, i.quantity - 1) } : i
                         ))}
                         className="w-6 h-6 rounded flex items-center justify-center text-gray-400 hover:text-cream hover:bg-surface-300 transition-colors"
                       >
