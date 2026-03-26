@@ -22,6 +22,7 @@ export default function Inventory() {
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
   const [showFilters, setShowFilters] = useState(false);
   const [imagePreview, setImagePreview] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -83,16 +84,29 @@ export default function Inventory() {
     }
   };
 
+  const validateForm = (f) => {
+    const errors = {};
+    if (!f.sku?.trim()) errors.sku = 'Campo obligatorio';
+    if (!f.category_id) errors.category_id = 'Campo obligatorio';
+    if (!f.type?.trim()) errors.type = 'Campo obligatorio';
+    if (f.purchase_price === '' || f.purchase_price === null || Number(f.purchase_price) === 0) errors.purchase_price = 'Campo obligatorio';
+    if (f.stock === '' || f.stock === null) errors.stock = 'Campo obligatorio';
+    if (f.min_stock === '' || f.min_stock === null) errors.min_stock = 'Campo obligatorio';
+    return errors;
+  };
+
   const openCreate = () => {
     setEditItem(null);
     setForm(EMPTY_FORM);
     setImagePreview('');
+    setFormErrors({});
     setModalOpen(true);
   };
 
   const openEdit = (p) => {
     setEditItem(p);
     setImagePreview(p.image_url || '');
+    setFormErrors({});
     setForm({
       name: p.name || '',
       description: p.description || '',
@@ -111,6 +125,12 @@ export default function Inventory() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    const errors = validateForm(form);
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    setFormErrors({});
     setSaving(true);
     try {
       const payload = {
@@ -341,26 +361,32 @@ export default function Inventory() {
                 rows={2} placeholder="Descripción del producto..." className="input-field resize-none" />
             </div>
             <div>
-              <label className="label">Categoría</label>
-              <select value={form.category_id} onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
-                className="input-field">
+              <label className="label">Categoría *</label>
+              <select value={form.category_id}
+                onChange={e => { setForm(f => ({ ...f, category_id: e.target.value })); setFormErrors(fe => ({ ...fe, category_id: undefined })); }}
+                className={`input-field ${formErrors.category_id ? 'border-red-500' : ''}`}>
                 <option value="">Sin categoría</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              {formErrors.category_id && <p className="text-red-400 text-xs mt-1">{formErrors.category_id}</p>}
             </div>
             <div>
-              <label className="label">Tipo / Material</label>
-              <input type="text" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                placeholder="Ej: Oro 18k, Plata 925..." className="input-field" />
+              <label className="label">Tipo / Material *</label>
+              <input type="text" value={form.type}
+                onChange={e => { setForm(f => ({ ...f, type: e.target.value })); setFormErrors(fe => ({ ...fe, type: undefined })); }}
+                placeholder="Ej: Oro 18k, Plata 925..."
+                className={`input-field ${formErrors.type ? 'border-red-500' : ''}`} />
+              {formErrors.type && <p className="text-red-400 text-xs mt-1">{formErrors.type}</p>}
             </div>
             <div>
-              <label className="label">Precio de compra</label>
+              <label className="label">Precio de compra *</label>
               <GuaraniInput
                 value={form.purchase_price}
-                onChange={v => setForm(f => ({ ...f, purchase_price: v }))}
+                onChange={v => { setForm(f => ({ ...f, purchase_price: v })); setFormErrors(fe => ({ ...fe, purchase_price: undefined })); }}
                 placeholder="0"
-                className="input-field"
+                className={`input-field ${formErrors.purchase_price ? 'border-red-500' : ''}`}
               />
+              {formErrors.purchase_price && <p className="text-red-400 text-xs mt-1">{formErrors.purchase_price}</p>}
             </div>
             <div>
               <label className="label">Precio de venta *</label>
@@ -373,16 +399,18 @@ export default function Inventory() {
               />
             </div>
             <div>
-              <label className="label">Stock</label>
+              <label className="label">Stock *</label>
               <input type="number" min="0" value={form.stock}
-                onChange={e => setForm(f => ({ ...f, stock: e.target.value }))}
-                placeholder="0" className="input-field" />
+                onChange={e => { setForm(f => ({ ...f, stock: e.target.value })); setFormErrors(fe => ({ ...fe, stock: undefined })); }}
+                placeholder="0" className={`input-field ${formErrors.stock ? 'border-red-500' : ''}`} />
+              {formErrors.stock && <p className="text-red-400 text-xs mt-1">{formErrors.stock}</p>}
             </div>
             <div>
-              <label className="label">Stock mínimo</label>
+              <label className="label">Stock mínimo *</label>
               <input type="number" min="0" value={form.min_stock}
-                onChange={e => setForm(f => ({ ...f, min_stock: e.target.value }))}
-                placeholder="5" className="input-field" />
+                onChange={e => { setForm(f => ({ ...f, min_stock: e.target.value })); setFormErrors(fe => ({ ...fe, min_stock: undefined })); }}
+                placeholder="5" className={`input-field ${formErrors.min_stock ? 'border-red-500' : ''}`} />
+              {formErrors.min_stock && <p className="text-red-400 text-xs mt-1">{formErrors.min_stock}</p>}
             </div>
             <div>
               <label className="label">Proveedor</label>
@@ -393,9 +421,11 @@ export default function Inventory() {
               </select>
             </div>
             <div>
-              <label className="label">SKU</label>
-              <input type="text" value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
-                placeholder="Código único" className="input-field" />
+              <label className="label">SKU *</label>
+              <input type="text" value={form.sku}
+                onChange={e => { setForm(f => ({ ...f, sku: e.target.value })); setFormErrors(fe => ({ ...fe, sku: undefined })); }}
+                placeholder="Código único" className={`input-field ${formErrors.sku ? 'border-red-500' : ''}`} />
+              {formErrors.sku && <p className="text-red-400 text-xs mt-1">{formErrors.sku}</p>}
             </div>
             <div className="sm:col-span-2">
               <label className="label">Imagen del producto</label>
