@@ -284,7 +284,17 @@ export default function Sales() {
                       <p className="font-medium text-cream truncate">{product.name}</p>
                       <p className="text-xs text-gray-500">{fmt(product.sale_price)} × {quantity}</p>
                     </div>
-                    <p className="font-semibold text-gold-400 ml-3 whitespace-nowrap">{fmt(subtotal)}</p>
+                    <div className="flex items-center gap-2 ml-3">
+                      <p className="font-semibold text-gold-400 whitespace-nowrap">{fmt(subtotal)}</p>
+                      <button
+                        type="button"
+                        onClick={() => setCartItems(items => items.filter(i => i.product.id !== product.id))}
+                        className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        title="Quitar producto"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 );
               })}

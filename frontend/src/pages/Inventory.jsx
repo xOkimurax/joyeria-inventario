@@ -474,8 +474,8 @@ export default function Inventory() {
             <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary flex-1 justify-center">
               Cancelar
             </button>
-            <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
-              {saving ? 'Guardando...' : editItem ? 'Actualizar' : 'Crear producto'}
+            <button type="submit" disabled={saving || uploading} className="btn-primary flex-1 justify-center">
+              {uploading ? 'Subiendo imagen...' : saving ? 'Guardando...' : editItem ? 'Actualizar' : 'Crear producto'}
             </button>
           </div>
         </form>
