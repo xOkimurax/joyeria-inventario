@@ -16,6 +16,7 @@ export default function Sales() {
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [cartError, setCartError] = useState(false);
 
   // Cart state
   const [cartItems, setCartItems] = useState([]);       // confirmed items
@@ -74,6 +75,7 @@ export default function Sales() {
 
   const confirmCart = () => {
     setCartItems(cartDraft);
+    if (cartDraft.length > 0) setCartError(false);
     setCartModalOpen(false);
   };
 
@@ -82,9 +84,9 @@ export default function Sales() {
     setCartModalOpen(false);
   };
 
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(cartSearch.toLowerCase())
-  );
+  const filteredProducts = cartSearch.length >= 3
+    ? products.filter(p => p.name.toLowerCase().includes(cartSearch.toLowerCase()))
+    : [];
 
   const cartTotal = cartItems.reduce((sum, i) => sum + (parseFloat(i.product.sale_price || 0) * i.quantity), 0);
 
@@ -92,9 +94,10 @@ export default function Sales() {
   const handleSave = async (e) => {
     e.preventDefault();
     if (cartItems.length === 0) {
-      toast.error('Selecciona al menos un producto');
+      setCartError(true);
       return;
     }
+    setCartError(false);
     setSaving(true);
     try {
       await Promise.all(cartItems.map(item =>
@@ -141,7 +144,7 @@ export default function Sales() {
           <h1 className="font-serif text-2xl font-semibold text-cream">Ventas</h1>
           <p className="text-gray-500 text-sm mt-0.5">{total} transacciones</p>
         </div>
-        <button onClick={() => { setForm(EMPTY_FORM); setCartItems([]); setModalOpen(true); }}
+        <button onClick={() => { setForm(EMPTY_FORM); setCartItems([]); setCartError(false); setModalOpen(true); }}
           className="btn-primary">
           <Plus size={16} />
           <span className="hidden sm:inline">Nueva venta</span>
@@ -251,7 +254,11 @@ export default function Sales() {
           <div>
             <label className="label">Productos *</label>
             <button type="button" onClick={openCartModal}
-              className="w-full flex items-center gap-2 px-4 py-2.5 bg-surface-50 border border-surface-200 hover:border-gold-500/50 rounded-lg text-sm text-gray-400 hover:text-cream transition-all">
+              className={`w-full flex items-center gap-2 px-4 py-2.5 bg-surface-50 border rounded-lg text-sm transition-all ${
+                cartError
+                  ? 'border-red-500 text-red-400 hover:border-red-400'
+                  : 'border-surface-200 text-gray-400 hover:border-gold-500/50 hover:text-cream'
+              }`}>
               <PackageSearch size={16} />
               Seleccionar productos
               {cartItems.length > 0 && (
@@ -260,6 +267,9 @@ export default function Sales() {
                 </span>
               )}
             </button>
+            {cartError && (
+              <p className="text-red-400 text-xs mt-1">Seleccioná al menos un producto para registrar la venta.</p>
+            )}
           </div>
 
           {/* Cart items list */}
@@ -303,7 +313,7 @@ export default function Sales() {
             <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary flex-1 justify-center">
               Cancelar
             </button>
-            <button type="submit" disabled={saving || cartItems.length === 0} className="btn-primary flex-1 justify-center">
+            <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
               {saving ? 'Registrando...' : 'Registrar venta'}
             </button>
           </div>
@@ -330,7 +340,12 @@ export default function Sales() {
 
           {/* Product list */}
           <div className="flex-1 overflow-y-auto px-6 py-3 space-y-2">
-            {filteredProducts.length === 0 ? (
+            {cartSearch.length < 3 ? (
+              <div className="flex flex-col items-center gap-2 text-gray-600 py-10">
+                <Search size={28} className="opacity-30" />
+                <p className="text-sm">Escribí al menos 3 letras para buscar...</p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <p className="text-center text-gray-600 py-8">No se encontraron productos</p>
             ) : filteredProducts.map(product => {
               const qty = draftQty(product.id);
