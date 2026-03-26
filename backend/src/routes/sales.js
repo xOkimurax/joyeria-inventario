@@ -88,7 +88,7 @@ router.post('/', async (req, res) => {
     const product = productRows[0];
     if (product.stock < parseInt(quantity)) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: `Stock insuficiente. Disponible: ${product.stock}` });
+      return res.status(400).json({ error: `Stock insuficiente de "${product.name}". Disponible: ${product.stock}` });
     }
 
     const price = parseFloat(unit_price) || parseFloat(product.sale_price);
