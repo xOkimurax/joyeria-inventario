@@ -7,7 +7,6 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Multer config for image uploads
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
@@ -21,14 +20,13 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
     else cb(new Error('Solo se permiten imágenes'));
   },
 });
 
-// POST /api/products/upload-image  (before authMiddleware so multer runs first)
 router.post('/upload-image', authMiddleware, upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se recibió imagen' });
   res.json({ url: `/uploads/${req.file.filename}` });
@@ -42,9 +40,9 @@ router.get('/', async (req, res) => {
   const offset = (page - 1) * limit;
 
   try {
-    const conditions = [];
-    const params = [];
-    let idx = 1;
+    const conditions = [`p.user_id = $1`];
+    const params = [req.user.id];
+    let idx = 2;
 
     if (search) {
       conditions.push(`(p.name ILIKE $${idx} OR p.description ILIKE $${idx} OR p.sku ILIKE $${idx})`);
@@ -75,11 +73,9 @@ router.get('/', async (req, res) => {
       conditions.push(`p.stock <= p.min_stock`);
     }
 
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const where = `WHERE ${conditions.join(' AND ')}`;
 
-    const countResult = await pool.query(
-      `SELECT COUNT(*) FROM products p ${where}`, params
-    );
+    const countResult = await pool.query(`SELECT COUNT(*) FROM products p ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
 
     const { rows } = await pool.query(
@@ -110,8 +106,8 @@ router.get('/:id', async (req, res) => {
        FROM products p
        LEFT JOIN categories c ON c.id = p.category_id
        LEFT JOIN suppliers s ON s.id = p.supplier_id
-       WHERE p.id = $1`,
-      [req.params.id]
+       WHERE p.id = $1 AND p.user_id = $2`,
+      [req.params.id, req.user.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
     res.json(rows[0]);
@@ -130,8 +126,8 @@ router.post('/', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      `INSERT INTO products (name, description, category_id, type, purchase_price, sale_price, stock, min_stock, image_url, supplier_id, sku)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      `INSERT INTO products (name, description, category_id, type, purchase_price, sale_price, stock, min_stock, image_url, supplier_id, sku, user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
       [
         name.trim(),
         description || null,
@@ -144,6 +140,7 @@ router.post('/', async (req, res) => {
         image_url || null,
         supplier_id || null,
         sku || null,
+        req.user.id,
       ]
     );
     res.status(201).json(rows[0]);
@@ -166,7 +163,7 @@ router.put('/:id', async (req, res) => {
         name=$1, description=$2, category_id=$3, type=$4,
         purchase_price=$5, sale_price=$6, stock=$7, min_stock=$8,
         image_url=$9, supplier_id=$10, sku=$11, updated_at=NOW()
-       WHERE id=$12 RETURNING *`,
+       WHERE id=$12 AND user_id=$13 RETURNING *`,
       [
         name.trim(),
         description || null,
@@ -180,6 +177,7 @@ router.put('/:id', async (req, res) => {
         supplier_id || null,
         sku || null,
         req.params.id,
+        req.user.id,
       ]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
@@ -195,7 +193,8 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'DELETE FROM products WHERE id = $1 RETURNING id', [req.params.id]
+      'DELETE FROM products WHERE id = $1 AND user_id = $2 RETURNING id',
+      [req.params.id, req.user.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
     res.json({ message: 'Producto eliminado' });

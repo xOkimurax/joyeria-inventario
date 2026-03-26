@@ -7,6 +7,8 @@ router.use(authMiddleware);
 
 // GET /api/dashboard/metrics
 router.get('/metrics', async (req, res) => {
+  const uid = req.user.id;
+
   try {
     const [
       stockResult,
@@ -18,67 +20,62 @@ router.get('/metrics', async (req, res) => {
       salesChartResult,
       categoriesResult,
     ] = await Promise.all([
-      // Total stock units
-      pool.query('SELECT COALESCE(SUM(stock), 0) as total_stock FROM products'),
+      pool.query('SELECT COALESCE(SUM(stock), 0) as total_stock FROM products WHERE user_id = $1', [uid]),
 
-      // Sales today
       pool.query(`
         SELECT COALESCE(SUM(total), 0) as total, COUNT(*) as count
-        FROM sales WHERE sold_at::date = CURRENT_DATE
-      `),
+        FROM sales WHERE sold_at::date = CURRENT_DATE AND user_id = $1
+      `, [uid]),
 
-      // Sales this month
       pool.query(`
         SELECT COALESCE(SUM(total), 0) as total, COUNT(*) as count
         FROM sales
         WHERE EXTRACT(MONTH FROM sold_at) = EXTRACT(MONTH FROM NOW())
           AND EXTRACT(YEAR FROM sold_at) = EXTRACT(YEAR FROM NOW())
-      `),
+          AND user_id = $1
+      `, [uid]),
 
-      // Low stock products
       pool.query(`
         SELECT id, name, stock, min_stock, sale_price
         FROM products
-        WHERE stock <= min_stock
+        WHERE stock <= min_stock AND user_id = $1
         ORDER BY stock ASC
         LIMIT 10
-      `),
+      `, [uid]),
 
-      // Inventory value (purchase price * stock)
       pool.query(`
         SELECT COALESCE(SUM(purchase_price * stock), 0) as purchase_value,
                COALESCE(SUM(sale_price * stock), 0) as sale_value
-        FROM products
-      `),
+        FROM products WHERE user_id = $1
+      `, [uid]),
 
-      // Top selling products this month
       pool.query(`
         SELECT s.product_name, SUM(s.quantity) as total_qty, SUM(s.total) as total_revenue
         FROM sales s
         WHERE EXTRACT(MONTH FROM s.sold_at) = EXTRACT(MONTH FROM NOW())
           AND EXTRACT(YEAR FROM s.sold_at) = EXTRACT(YEAR FROM NOW())
+          AND s.user_id = $1
         GROUP BY s.product_name
         ORDER BY total_revenue DESC
         LIMIT 5
-      `),
+      `, [uid]),
 
-      // Sales last 7 days (chart data)
       pool.query(`
         SELECT DATE(sold_at) as date, COALESCE(SUM(total), 0) as total
         FROM sales
-        WHERE sold_at >= NOW() - INTERVAL '7 days'
+        WHERE sold_at >= NOW() - INTERVAL '7 days' AND user_id = $1
         GROUP BY DATE(sold_at)
         ORDER BY date
-      `),
+      `, [uid]),
 
-      // Products by category
       pool.query(`
         SELECT c.name, COUNT(p.id) as count, COALESCE(SUM(p.stock), 0) as total_stock
         FROM categories c
-        LEFT JOIN products p ON p.category_id = c.id
+        LEFT JOIN products p ON p.category_id = c.id AND p.user_id = $1
+        WHERE c.user_id = $1
         GROUP BY c.id, c.name
         ORDER BY count DESC
-      `),
+      `, [uid]),
     ]);
 
     res.json({

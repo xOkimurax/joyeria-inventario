@@ -63,11 +63,11 @@ router.delete('/account', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Tables have no user_id — data is shared, delete everything
-    await client.query('DELETE FROM sales');
-    await client.query('DELETE FROM products');
-    await client.query('DELETE FROM categories');
-    await client.query('DELETE FROM suppliers');
+    // Delete only this user's data (multi-tenant)
+    await client.query('DELETE FROM sales WHERE user_id = $1', [req.user.id]);
+    await client.query('DELETE FROM products WHERE user_id = $1', [req.user.id]);
+    await client.query('DELETE FROM categories WHERE user_id = $1', [req.user.id]);
+    await client.query('DELETE FROM suppliers WHERE user_id = $1', [req.user.id]);
     await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [req.user.id]);
     await client.query('DELETE FROM users WHERE id = $1', [req.user.id]);
 

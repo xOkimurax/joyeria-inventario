@@ -11,9 +11,11 @@ router.get('/', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT c.*, COUNT(p.id) as product_count
        FROM categories c
-       LEFT JOIN products p ON p.category_id = c.id
+       LEFT JOIN products p ON p.category_id = c.id AND p.user_id = $1
+       WHERE c.user_id = $1
        GROUP BY c.id
-       ORDER BY c.name`
+       ORDER BY c.name`,
+      [req.user.id]
     );
     res.json(rows);
   } catch (err) {
@@ -29,8 +31,8 @@ router.post('/', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      'INSERT INTO categories (name, description) VALUES ($1, $2) RETURNING *',
-      [name.trim(), description || null]
+      'INSERT INTO categories (name, description, user_id) VALUES ($1, $2, $3) RETURNING *',
+      [name.trim(), description || null, req.user.id]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -46,8 +48,8 @@ router.put('/:id', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      'UPDATE categories SET name = $1, description = $2 WHERE id = $3 RETURNING *',
-      [name.trim(), description || null, req.params.id]
+      'UPDATE categories SET name = $1, description = $2 WHERE id = $3 AND user_id = $4 RETURNING *',
+      [name.trim(), description || null, req.params.id, req.user.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Categoría no encontrada' });
     res.json(rows[0]);
@@ -61,7 +63,8 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'DELETE FROM categories WHERE id = $1 RETURNING id', [req.params.id]
+      'DELETE FROM categories WHERE id = $1 AND user_id = $2 RETURNING id',
+      [req.params.id, req.user.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Categoría no encontrada' });
     res.json({ message: 'Categoría eliminada' });

@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import pool from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { seedUserCategories } from '../migrations.js';
 
 const router = express.Router();
 
@@ -38,6 +39,9 @@ router.post('/register', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
+
+    // Seed default categories for new user
+    await seedUserCategories(rows[0].id);
 
     res.status(201).json({ token, user: { id: rows[0].id, username: rows[0].username, email: rows[0].email } });
   } catch (err) {
@@ -232,6 +236,9 @@ router.post('/insforge-callback', async (req, res) => {
       );
       user = rows[0];
     }
+
+    // Seed default categories for new/existing user if needed
+    await seedUserCategories(user.id);
 
     const token = jwt.sign(
       { id: user.id, username: user.username },

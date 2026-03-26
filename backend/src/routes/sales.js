@@ -11,9 +11,9 @@ router.get('/', async (req, res) => {
   const offset = (page - 1) * limit;
 
   try {
-    const conditions = [];
-    const params = [];
-    let idx = 1;
+    const conditions = [`s.user_id = $1`];
+    const params = [req.user.id];
+    let idx = 2;
 
     if (from) {
       conditions.push(`s.sold_at >= $${idx++}`);
@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
       params.push(product_id);
     }
 
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const where = `WHERE ${conditions.join(' AND ')}`;
 
     const countResult = await pool.query(`SELECT COUNT(*) FROM sales s ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
@@ -44,7 +44,6 @@ router.get('/', async (req, res) => {
       [...params, parseInt(limit), offset]
     );
 
-    // Totals
     const totalsResult = await pool.query(
       `SELECT COALESCE(SUM(total), 0) as grand_total,
               COALESCE(SUM(quantity), 0) as total_units
@@ -77,9 +76,9 @@ router.post('/', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Get product
     const { rows: productRows } = await client.query(
-      'SELECT * FROM products WHERE id = $1 FOR UPDATE', [product_id]
+      'SELECT * FROM products WHERE id = $1 AND user_id = $2 FOR UPDATE',
+      [product_id, req.user.id]
     );
     if (productRows.length === 0) {
       await client.query('ROLLBACK');
@@ -96,12 +95,11 @@ router.post('/', async (req, res) => {
     const total = price * parseInt(quantity);
 
     const { rows } = await client.query(
-      `INSERT INTO sales (product_id, product_name, quantity, unit_price, total, client_name, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [product_id, product.name, parseInt(quantity), price, total, client_name || null, notes || null]
+      `INSERT INTO sales (product_id, product_name, quantity, unit_price, total, client_name, notes, user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [product_id, product.name, parseInt(quantity), price, total, client_name || null, notes || null, req.user.id]
     );
 
-    // Update stock
     await client.query(
       'UPDATE products SET stock = stock - $1, updated_at = NOW() WHERE id = $2',
       [parseInt(quantity), product_id]
@@ -118,14 +116,15 @@ router.post('/', async (req, res) => {
   }
 });
 
-// DELETE /api/sales/:id (reversar venta)
+// DELETE /api/sales/:id
 router.delete('/:id', async (req, res) => {
   const dbClient = await pool.connect();
   try {
     await dbClient.query('BEGIN');
 
     const { rows: saleRows } = await dbClient.query(
-      'SELECT * FROM sales WHERE id = $1', [req.params.id]
+      'SELECT * FROM sales WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.id]
     );
     if (saleRows.length === 0) {
       await dbClient.query('ROLLBACK');
@@ -134,7 +133,6 @@ router.delete('/:id', async (req, res) => {
 
     const sale = saleRows[0];
 
-    // Restore stock
     if (sale.product_id) {
       await dbClient.query(
         'UPDATE products SET stock = stock + $1, updated_at = NOW() WHERE id = $2',
