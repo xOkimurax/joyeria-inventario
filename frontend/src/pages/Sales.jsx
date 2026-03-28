@@ -84,8 +84,11 @@ export default function Sales() {
     setCartModalOpen(false);
   };
 
-  const filteredProducts = cartSearch.length >= 3
-    ? products.filter(p => p.name.toLowerCase().includes(cartSearch.toLowerCase()))
+  const filteredProducts = cartSearch.length >= 2
+    ? products.filter(p =>
+        p.name.toLowerCase().includes(cartSearch.toLowerCase()) ||
+        (p.sku && p.sku.toLowerCase().includes(cartSearch.toLowerCase()))
+      )
     : [];
 
   const cartTotal = cartItems.reduce((sum, i) => sum + (parseFloat(i.product.sale_price || 0) * i.quantity), 0);
@@ -360,7 +363,7 @@ export default function Sales() {
                 type="text"
                 value={cartSearch}
                 onChange={e => setCartSearch(e.target.value)}
-                placeholder="Buscar producto..."
+                placeholder="Buscar por nombre o código..."
                 className="input-field pl-9"
                 autoFocus
               />
@@ -372,7 +375,7 @@ export default function Sales() {
             {cartSearch.length < 3 ? (
               <div className="flex flex-col items-center gap-2 text-gray-600 py-10">
                 <Search size={28} className="opacity-30" />
-                <p className="text-sm">Escribí al menos 3 letras para buscar...</p>
+                <p className="text-sm">Escribí al menos 2 caracteres para buscar...</p>
               </div>
             ) : filteredProducts.length === 0 ? (
               <p className="text-center text-gray-600 py-8">No se encontraron productos</p>
@@ -383,7 +386,10 @@ export default function Sales() {
                   className="flex items-center justify-between bg-surface-100 border border-surface-300 rounded-lg px-3 py-2.5">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-cream text-sm truncate">{product.name}</p>
-                    <div className="flex gap-3 mt-0.5">
+                    <div className="flex gap-3 mt-0.5 flex-wrap">
+                      {product.sku && (
+                        <span className="text-xs text-gray-500 font-mono">#{product.sku}</span>
+                      )}
                       <span className="text-xs text-gold-400">{fmt(product.sale_price)}</span>
                       <span className={`text-xs ${product.stock <= (product.min_stock || 0) ? 'text-amber-400' : 'text-gray-500'}`}>
                         Stock: {product.stock}
