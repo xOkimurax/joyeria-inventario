@@ -34,7 +34,7 @@ router.post('/upload-image', authMiddleware, upload.single('image'), (req, res) 
 
 router.use(authMiddleware);
 
-// GET /api/joyeria_products
+// GET /api/products
 router.get('/', async (req, res) => {
   const { category_id, supplier_id, type, min_price, max_price, low_stock, search, page = 1, limit = 50 } = req.query;
   const offset = (page - 1) * limit;
@@ -75,37 +75,37 @@ router.get('/', async (req, res) => {
 
     const where = `WHERE ${conditions.join(' AND ')}`;
 
-    const countResult = await pool.query(`SELECT COUNT(*) FROM joyeria_products p ${where}`, params);
+    const countResult = await pool.query(`SELECT COUNT(*) FROM products p ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
 
     const { rows } = await pool.query(
       `SELECT p.*,
               c.name as category_name,
               s.name as supplier_name
-       FROM joyeria_products p
-       LEFT JOIN joyeria_categories c ON c.id = p.category_id
-       LEFT JOIN joyeria_suppliers s ON s.id = p.supplier_id
+       FROM products p
+       LEFT JOIN categories c ON c.id = p.category_id
+       LEFT JOIN suppliers s ON s.id = p.supplier_id
        ${where}
        ORDER BY p.updated_at DESC
        LIMIT $${idx} OFFSET $${idx + 1}`,
       [...params, parseInt(limit), offset]
     );
 
-    res.json({ joyeria_products: rows, total, page: parseInt(page), limit: parseInt(limit) });
+    res.json({ products: rows, total, page: parseInt(page), limit: parseInt(limit) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al obtener productos' });
   }
 });
 
-// GET /api/joyeria_products/:id
+// GET /api/products/:id
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT p.*, c.name as category_name, s.name as supplier_name
-       FROM joyeria_products p
-       LEFT JOIN joyeria_categories c ON c.id = p.category_id
-       LEFT JOIN joyeria_suppliers s ON s.id = p.supplier_id
+       FROM products p
+       LEFT JOIN categories c ON c.id = p.category_id
+       LEFT JOIN suppliers s ON s.id = p.supplier_id
        WHERE p.id = $1 AND p.user_id = $2`,
       [req.params.id, req.user.id]
     );
@@ -117,7 +117,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/joyeria_products
+// POST /api/products
 router.post('/', async (req, res) => {
   const { name, description, category_id, type, purchase_price, sale_price, stock, min_stock, image_url, supplier_id, sku } = req.body;
 
@@ -126,7 +126,7 @@ router.post('/', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      `INSERT INTO joyeria_products (name, description, category_id, type, purchase_price, sale_price, stock, min_stock, image_url, supplier_id, sku, user_id)
+      `INSERT INTO products (name, description, category_id, type, purchase_price, sale_price, stock, min_stock, image_url, supplier_id, sku, user_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
       [
         name.trim(),
@@ -151,7 +151,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/joyeria_products/:id
+// PUT /api/products/:id
 router.put('/:id', async (req, res) => {
   const { name, description, category_id, type, purchase_price, sale_price, stock, min_stock, image_url, supplier_id, sku } = req.body;
 
@@ -159,7 +159,7 @@ router.put('/:id', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      `UPDATE joyeria_products SET
+      `UPDATE products SET
         name=$1, description=$2, category_id=$3, type=$4,
         purchase_price=$5, sale_price=$6, stock=$7, min_stock=$8,
         image_url=$9, supplier_id=$10, sku=$11, updated_at=NOW()
@@ -189,11 +189,11 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/joyeria_products/:id
+// DELETE /api/products/:id
 router.delete('/:id', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'DELETE FROM joyeria_products WHERE id = $1 AND user_id = $2 RETURNING id',
+      'DELETE FROM products WHERE id = $1 AND user_id = $2 RETURNING id',
       [req.params.id, req.user.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
