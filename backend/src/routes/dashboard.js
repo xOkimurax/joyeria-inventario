@@ -50,12 +50,12 @@ router.get('/metrics', async (req, res) => {
       `, [uid]),
 
       pool.query(`
-        SELECT s.product_name, SUM(s.quantity) as total_qty, SUM(s.total) as total_revenue
+        SELECT s.description, SUM(s.quantity) as total_qty, SUM(s.total_amount) as total_revenue
         FROM sales s
-        WHERE EXTRACT(MONTH FROM s.sold_at) = EXTRACT(MONTH FROM NOW())
-          AND EXTRACT(YEAR FROM s.sold_at) = EXTRACT(YEAR FROM NOW())
+        WHERE EXTRACT(MONTH FROM s.created) = EXTRACT(MONTH FROM NOW())
+          AND EXTRACT(YEAR FROM s.created) = EXTRACT(YEAR FROM NOW())
           AND s.user_id = $1
-        GROUP BY s.product_name
+        GROUP BY s.description
         ORDER BY total_revenue DESC
         LIMIT 5
       `, [uid]),
@@ -69,9 +69,9 @@ router.get('/metrics', async (req, res) => {
       `, [uid]),
 
       pool.query(`
-        SELECT c.name, COUNT(p.id) as count, COALESCE(SUM(p.stock), 0) as total_stock
+        SELECT c.name, COUNT(p.id) as count, COALESCE(SUM(p.quantity), 0) as total_stock
         FROM categories c
-        LEFT JOIN products p ON p.category_id = c.id AND p.user_id = $1
+        LEFT JOIN products p ON p.type_id = c.id AND p.user_id = $1
         WHERE c.user_id = $1
         GROUP BY c.id, c.name
         ORDER BY count DESC
