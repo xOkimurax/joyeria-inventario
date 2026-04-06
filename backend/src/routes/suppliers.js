@@ -5,13 +5,13 @@ import { authMiddleware } from '../middleware/auth.js';
 const router = express.Router();
 router.use(authMiddleware);
 
-// GET /api/suppliers
+// GET /api/joyeria_suppliers
 router.get('/', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT s.*, COUNT(p.id) as product_count
-       FROM suppliers s
-       LEFT JOIN products p ON p.supplier_id = s.id AND p.user_id = $1
+       FROM joyeria_suppliers s
+       LEFT JOIN joyeria_products p ON p.supplier_id = s.id AND p.user_id = $1
        WHERE s.user_id = $1
        GROUP BY s.id
        ORDER BY s.name`,
@@ -24,13 +24,13 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/suppliers/:id/products
-router.get('/:id/products', async (req, res) => {
+// GET /api/joyeria_suppliers/:id/joyeria_products
+router.get('/:id/joyeria_products', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT p.*, c.name as category_name
-       FROM products p
-       LEFT JOIN categories c ON c.id = p.category_id
+       FROM joyeria_products p
+       LEFT JOIN joyeria_categories c ON c.id = p.category_id
        WHERE p.supplier_id = $1 AND p.user_id = $2
        ORDER BY p.name`,
       [req.params.id, req.user.id]
@@ -42,14 +42,14 @@ router.get('/:id/products', async (req, res) => {
   }
 });
 
-// POST /api/suppliers
+// POST /api/joyeria_suppliers
 router.post('/', async (req, res) => {
   const { name, contact_name, email, phone, address, notes } = req.body;
   if (!name) return res.status(400).json({ error: 'Nombre requerido' });
 
   try {
     const { rows } = await pool.query(
-      `INSERT INTO suppliers (name, contact_name, email, phone, address, notes, user_id)
+      `INSERT INTO joyeria_suppliers (name, contact_name, email, phone, address, notes, user_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [name.trim(), contact_name || null, email || null, phone || null, address || null, notes || null, req.user.id]
     );
@@ -60,14 +60,14 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/suppliers/:id
+// PUT /api/joyeria_suppliers/:id
 router.put('/:id', async (req, res) => {
   const { name, contact_name, email, phone, address, notes } = req.body;
   if (!name) return res.status(400).json({ error: 'Nombre requerido' });
 
   try {
     const { rows } = await pool.query(
-      `UPDATE suppliers SET name=$1, contact_name=$2, email=$3, phone=$4,
+      `UPDATE joyeria_suppliers SET name=$1, contact_name=$2, email=$3, phone=$4,
        address=$5, notes=$6, updated_at=NOW() WHERE id=$7 AND user_id=$8 RETURNING *`,
       [name.trim(), contact_name || null, email || null, phone || null, address || null, notes || null, req.params.id, req.user.id]
     );
@@ -79,11 +79,11 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/suppliers/:id
+// DELETE /api/joyeria_suppliers/:id
 router.delete('/:id', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'DELETE FROM suppliers WHERE id = $1 AND user_id = $2 RETURNING id',
+      'DELETE FROM joyeria_suppliers WHERE id = $1 AND user_id = $2 RETURNING id',
       [req.params.id, req.user.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Proveedor no encontrado' });

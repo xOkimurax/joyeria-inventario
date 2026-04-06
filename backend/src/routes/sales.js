@@ -5,7 +5,7 @@ import { authMiddleware } from '../middleware/auth.js';
 const router = express.Router();
 router.use(authMiddleware);
 
-// GET /api/sales
+// GET /api/joyeria_sales
 router.get('/', async (req, res) => {
   const { from, to, product_id, page = 1, limit = 50 } = req.query;
   const offset = (page - 1) * limit;
@@ -30,14 +30,14 @@ router.get('/', async (req, res) => {
 
     const where = `WHERE ${conditions.join(' AND ')}`;
 
-    const countResult = await pool.query(`SELECT COUNT(*) FROM sales s ${where}`, params);
+    const countResult = await pool.query(`SELECT COUNT(*) FROM joyeria_sales s ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
 
     const { rows } = await pool.query(
       `SELECT s.*, p.name as product_name_ref, c.name as category_name
-       FROM sales s
-       LEFT JOIN products p ON p.id = s.product_id
-       LEFT JOIN categories c ON c.id = p.category_id
+       FROM joyeria_sales s
+       LEFT JOIN joyeria_products p ON p.id = s.product_id
+       LEFT JOIN joyeria_categories c ON c.id = p.category_id
        ${where}
        ORDER BY s.sold_at DESC
        LIMIT $${idx} OFFSET $${idx + 1}`,
@@ -47,12 +47,12 @@ router.get('/', async (req, res) => {
     const totalsResult = await pool.query(
       `SELECT COALESCE(SUM(total), 0) as grand_total,
               COALESCE(SUM(quantity), 0) as total_units
-       FROM sales s ${where}`,
+       FROM joyeria_sales s ${where}`,
       params
     );
 
     res.json({
-      sales: rows,
+      joyeria_sales: rows,
       total,
       page: parseInt(page),
       limit: parseInt(limit),
@@ -65,7 +65,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/sales
+// POST /api/joyeria_sales
 router.post('/', async (req, res) => {
   const { product_id, quantity, unit_price, client_name, notes } = req.body;
 
@@ -77,7 +77,7 @@ router.post('/', async (req, res) => {
     await client.query('BEGIN');
 
     const { rows: productRows } = await client.query(
-      'SELECT * FROM products WHERE id = $1 AND user_id = $2 FOR UPDATE',
+      'SELECT * FROM joyeria_products WHERE id = $1 AND user_id = $2 FOR UPDATE',
       [product_id, req.user.id]
     );
     if (productRows.length === 0) {
@@ -95,13 +95,13 @@ router.post('/', async (req, res) => {
     const total = price * parseInt(quantity);
 
     const { rows } = await client.query(
-      `INSERT INTO sales (product_id, product_name, quantity, unit_price, total, client_name, notes, user_id)
+      `INSERT INTO joyeria_sales (product_id, product_name, quantity, unit_price, total, client_name, notes, user_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
       [product_id, product.name, parseInt(quantity), price, total, client_name || null, notes || null, req.user.id]
     );
 
     await client.query(
-      'UPDATE products SET stock = stock - $1, updated_at = NOW() WHERE id = $2',
+      'UPDATE joyeria_products SET stock = stock - $1, updated_at = NOW() WHERE id = $2',
       [parseInt(quantity), product_id]
     );
 
@@ -116,14 +116,14 @@ router.post('/', async (req, res) => {
   }
 });
 
-// DELETE /api/sales/:id
+// DELETE /api/joyeria_sales/:id
 router.delete('/:id', async (req, res) => {
   const dbClient = await pool.connect();
   try {
     await dbClient.query('BEGIN');
 
     const { rows: saleRows } = await dbClient.query(
-      'SELECT * FROM sales WHERE id = $1 AND user_id = $2',
+      'SELECT * FROM joyeria_sales WHERE id = $1 AND user_id = $2',
       [req.params.id, req.user.id]
     );
     if (saleRows.length === 0) {
@@ -135,12 +135,12 @@ router.delete('/:id', async (req, res) => {
 
     if (sale.product_id) {
       await dbClient.query(
-        'UPDATE products SET stock = stock + $1, updated_at = NOW() WHERE id = $2',
+        'UPDATE joyeria_products SET stock = stock + $1, updated_at = NOW() WHERE id = $2',
         [sale.quantity, sale.product_id]
       );
     }
 
-    await dbClient.query('DELETE FROM sales WHERE id = $1', [req.params.id]);
+    await dbClient.query('DELETE FROM joyeria_sales WHERE id = $1', [req.params.id]);
     await dbClient.query('COMMIT');
     res.json({ message: 'Venta eliminada y stock restaurado' });
   } catch (err) {

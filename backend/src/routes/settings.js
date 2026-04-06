@@ -18,7 +18,7 @@ router.put('/password', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      'SELECT password_hash FROM joyeria_users WHERE id = $1', [req.user.id]
+      'SELECT password_hash FROM joyeria_joyeria_users WHERE id = $1', [req.user.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
 
@@ -26,7 +26,7 @@ router.put('/password', async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Contraseña actual incorrecta' });
 
     const hash = await bcrypt.hash(new_password, 12);
-    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
+    await pool.query('UPDATE joyeria_users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
 
     res.json({ message: 'Contraseña actualizada correctamente' });
   } catch (err) {
@@ -47,7 +47,7 @@ router.put('/email', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      'UPDATE users SET email = $1 WHERE id = $2 RETURNING id, username, email',
+      'UPDATE joyeria_users SET email = $1 WHERE id = $2 RETURNING id, username, email',
       [email.toLowerCase(), req.user.id]
     );
     res.json(rows[0]);
@@ -64,12 +64,12 @@ router.delete('/account', async (req, res) => {
     await client.query('BEGIN');
 
     // Delete only this user's data (multi-tenant)
-    await client.query('DELETE FROM sales WHERE user_id = $1', [req.user.id]);
-    await client.query('DELETE FROM products WHERE user_id = $1', [req.user.id]);
-    await client.query('DELETE FROM categories WHERE user_id = $1', [req.user.id]);
-    await client.query('DELETE FROM suppliers WHERE user_id = $1', [req.user.id]);
-    await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [req.user.id]);
-    await client.query('DELETE FROM joyeria_users WHERE id = $1', [req.user.id]);
+    await client.query('DELETE FROM joyeria_sales WHERE user_id = $1', [req.user.id]);
+    await client.query('DELETE FROM joyeria_products WHERE user_id = $1', [req.user.id]);
+    await client.query('DELETE FROM joyeria_categories WHERE user_id = $1', [req.user.id]);
+    await client.query('DELETE FROM joyeria_suppliers WHERE user_id = $1', [req.user.id]);
+    await client.query('DELETE FROM joyeria_password_resets WHERE user_id = $1', [req.user.id]);
+    await client.query('DELETE FROM joyeria_joyeria_users WHERE id = $1', [req.user.id]);
 
     await client.query('COMMIT');
     res.json({ message: 'Cuenta eliminada correctamente' });

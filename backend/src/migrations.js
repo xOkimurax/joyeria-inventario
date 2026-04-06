@@ -17,7 +17,7 @@ export async function runMigrations() {
     `);
 
     await client.query(`
-      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      CREATE TABLE IF NOT EXISTS joyeria_password_resets (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES joyeria_users(id) ON DELETE CASCADE,
         token VARCHAR(255) NOT NULL,
@@ -28,7 +28,7 @@ export async function runMigrations() {
     `);
 
     await client.query(`
-      CREATE TABLE IF NOT EXISTS categories (
+      CREATE TABLE IF NOT EXISTS joyeria_categories (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         description TEXT,
@@ -38,7 +38,7 @@ export async function runMigrations() {
     `);
 
     await client.query(`
-      CREATE TABLE IF NOT EXISTS suppliers (
+      CREATE TABLE IF NOT EXISTS joyeria_suppliers (
         id SERIAL PRIMARY KEY,
         name VARCHAR(200) NOT NULL,
         contact_name VARCHAR(200),
@@ -53,18 +53,18 @@ export async function runMigrations() {
     `);
 
     await client.query(`
-      CREATE TABLE IF NOT EXISTS products (
+      CREATE TABLE IF NOT EXISTS joyeria_products (
         id SERIAL PRIMARY KEY,
         name VARCHAR(200) NOT NULL,
         description TEXT,
-        category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+        category_id INTEGER REFERENCES joyeria_categories(id) ON DELETE SET NULL,
         type VARCHAR(100),
         purchase_price DECIMAL(12,2) NOT NULL DEFAULT 0,
         sale_price DECIMAL(12,2) NOT NULL DEFAULT 0,
         stock INTEGER NOT NULL DEFAULT 0,
         min_stock INTEGER DEFAULT 5,
         image_url TEXT,
-        supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL,
+        supplier_id INTEGER REFERENCES joyeria_suppliers(id) ON DELETE SET NULL,
         sku VARCHAR(100),
         user_id INTEGER REFERENCES joyeria_users(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT NOW(),
@@ -73,9 +73,9 @@ export async function runMigrations() {
     `);
 
     await client.query(`
-      CREATE TABLE IF NOT EXISTS sales (
+      CREATE TABLE IF NOT EXISTS joyeria_sales (
         id SERIAL PRIMARY KEY,
-        product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+        product_id INTEGER REFERENCES joyeria_products(id) ON DELETE SET NULL,
         product_name VARCHAR(200),
         quantity INTEGER NOT NULL,
         unit_price DECIMAL(12,2) NOT NULL,
@@ -99,11 +99,11 @@ export async function runMigrations() {
 }
 
 export async function seedUserCategories(userId) {
-  const { rows } = await pool.query('SELECT COUNT(*) FROM categories WHERE user_id = $1', [userId]);
+  const { rows } = await pool.query('SELECT COUNT(*) FROM joyeria_categories WHERE user_id = $1', [userId]);
   if (parseInt(rows[0].count) > 0) return;
 
   await pool.query(`
-    INSERT INTO categories (name, description, user_id) VALUES
+    INSERT INTO joyeria_categories (name, description, user_id) VALUES
     ('Anillos', 'Anillos de todo tipo', $1),
     ('Collares', 'Collares y cadenas', $1),
     ('Pulseras', 'Pulseras y brazaletes', $1),

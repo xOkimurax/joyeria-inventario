@@ -23,14 +23,14 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    const existing = await pool.query('SELECT id FROM joyeria_users WHERE username = $1', [username.toLowerCase()]);
+    const existing = await pool.query('SELECT id FROM joyeria_joyeria_users WHERE username = $1', [username.toLowerCase()]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: 'Ese username ya está en uso' });
     }
 
     const hash = await bcrypt.hash(password, 12);
     const { rows } = await pool.query(
-      'INSERT INTO joyeria_users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING id, username, email',
+      'INSERT INTO joyeria_joyeria_users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING id, username, email',
       [username.toLowerCase(), hash, email || null]
     );
 
@@ -40,7 +40,7 @@ router.post('/register', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // Seed default categories for new user
+    // Seed default joyeria_categories for new user
     await seedUserCategories(rows[0].id);
 
     res.status(201).json({ token, user: { id: rows[0].id, username: rows[0].username, email: rows[0].email } });
@@ -59,7 +59,7 @@ router.post('/login', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      'SELECT id, username, password_hash, email FROM joyeria_users WHERE username = $1',
+      'SELECT id, username, password_hash, email FROM joyeria_joyeria_users WHERE username = $1',
       [username.toLowerCase()]
     );
     if (rows.length === 0) {
@@ -93,7 +93,7 @@ router.post('/forgot-password', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      'SELECT id, email FROM joyeria_users WHERE username = $1',
+      'SELECT id, email FROM joyeria_joyeria_users WHERE username = $1',
       [username.toLowerCase()]
     );
 
@@ -106,7 +106,7 @@ router.post('/forgot-password', async (req, res) => {
     const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 min
 
     await pool.query(
-      'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      'INSERT INTO joyeria_password_resets (user_id, token, expires_at) VALUES ($1, $2, $3)',
       [rows[0].id, token, expires]
     );
 
@@ -158,14 +158,14 @@ router.post('/reset-password', async (req, res) => {
 
   try {
     const { rows: userRows } = await pool.query(
-      'SELECT id FROM joyeria_users WHERE username = $1', [username.toLowerCase()]
+      'SELECT id FROM joyeria_joyeria_users WHERE username = $1', [username.toLowerCase()]
     );
     if (userRows.length === 0) {
       return res.status(400).json({ error: 'Usuario o código incorrecto' });
     }
 
     const { rows } = await pool.query(
-      `SELECT id FROM password_reset_tokens
+      `SELECT id FROM joyeria_password_resets
        WHERE user_id = $1 AND token = $2 AND expires_at > NOW() AND used = FALSE
        ORDER BY created_at DESC LIMIT 1`,
       [userRows[0].id, token.toUpperCase()]
@@ -176,8 +176,8 @@ router.post('/reset-password', async (req, res) => {
     }
 
     const hash = await bcrypt.hash(newPassword, 12);
-    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, userRows[0].id]);
-    await pool.query('UPDATE password_reset_tokens SET used = TRUE WHERE id = $1', [rows[0].id]);
+    await pool.query('UPDATE joyeria_users SET password_hash = $1 WHERE id = $2', [hash, userRows[0].id]);
+    await pool.query('UPDATE joyeria_password_resets SET used = TRUE WHERE id = $1', [rows[0].id]);
 
     res.json({ message: 'Contraseña actualizada correctamente' });
   } catch (err) {
@@ -216,7 +216,7 @@ router.post('/insforge-callback', async (req, res) => {
 
     // Find or create local user by insforge_id or email
     const existing = await pool.query(
-      'SELECT id, username, email, google_id FROM joyeria_users WHERE google_id = $1 OR (email = $2 AND email IS NOT NULL)',
+      'SELECT id, username, email, google_id FROM joyeria_joyeria_users WHERE google_id = $1 OR (email = $2 AND email IS NOT NULL)',
       [insforgeId, email]
     );
 
@@ -224,20 +224,20 @@ router.post('/insforge-callback', async (req, res) => {
     if (existing.rows.length > 0) {
       user = existing.rows[0];
       if (!user.google_id) {
-        await pool.query('UPDATE users SET google_id = $1 WHERE id = $2', [insforgeId, user.id]);
+        await pool.query('UPDATE joyeria_users SET google_id = $1 WHERE id = $2', [insforgeId, user.id]);
       }
     } else {
       const base = email.split('@')[0].replace(/[^a-z0-9_]/gi, '').toLowerCase().slice(0, 20);
       const suffix = Math.random().toString(36).slice(2, 6);
       const username = `${base}_${suffix}`;
       const { rows } = await pool.query(
-        'INSERT INTO joyeria_users (username, password_hash, email, google_id) VALUES ($1, NULL, $2, $3) RETURNING id, username, email',
+        'INSERT INTO joyeria_joyeria_users (username, password_hash, email, google_id) VALUES ($1, NULL, $2, $3) RETURNING id, username, email',
         [username, email, insforgeId]
       );
       user = rows[0];
     }
 
-    // Seed default categories for new/existing user if needed
+    // Seed default joyeria_categories for new/existing user if needed
     await seedUserCategories(user.id);
 
     const token = jwt.sign(
@@ -257,7 +257,7 @@ router.post('/insforge-callback', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT id, username, email FROM joyeria_users WHERE id = $1', [req.user.id]
+      'SELECT id, username, email FROM joyeria_joyeria_users WHERE id = $1', [req.user.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json(rows[0]);
