@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
-import { Ring } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
@@ -100,7 +100,7 @@ export default function Login() {
             disabled={loading}
             className="btn-primary w-full flex items-center justify-center gap-2"
           >
-            {loading && <Ring size={18} className="animate-spin" />}
+            {loading && <Loader2 size={18} className="animate-spin" />}
             {isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}
           </button>
         </form>
