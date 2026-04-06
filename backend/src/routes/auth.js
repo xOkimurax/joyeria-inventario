@@ -239,15 +239,6 @@ router.post('/insforge-callback', async (req, res) => {
     }
 
     // Seed default categories for new/existing user if needed
-    
-
-    const token = jwt.sign(
-      { id: user.id, username: user.username },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    // Seed default categories for new/existing user if needed
     await seedUserCategories(user.id);
 
     const token = jwt.sign(
