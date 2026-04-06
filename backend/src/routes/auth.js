@@ -176,7 +176,7 @@ router.post('/reset-password', async (req, res) => {
     }
 
     const hash = await bcrypt.hash(newPassword, 12);
-    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, userRows[0].id]);
+    await pool.query('UPDATE app_users SET password_hash = $1 WHERE id = $2', [hash, userRows[0].id]);
     await pool.query('UPDATE password_reset_tokens SET used = TRUE WHERE id = $1', [rows[0].id]);
 
     res.json({ message: 'Contraseña actualizada correctamente' });
@@ -214,7 +214,7 @@ router.post('/insforge-callback', async (req, res) => {
       return res.status(401).json({ error: 'No se pudo obtener el email del usuario' });
     }
 
-    // Find or create local user by insforge_id or email
+    // Find or create local user by insforge_id or email in app_users (integer id)
     const existing = await pool.query(
       'SELECT id, username, email, google_id FROM app_users WHERE google_id = $1 OR (email = $2 AND email IS NOT NULL)',
       [insforgeId, email]
@@ -224,21 +224,31 @@ router.post('/insforge-callback', async (req, res) => {
     if (existing.rows.length > 0) {
       user = existing.rows[0];
       if (!user.google_id) {
-        await pool.query('UPDATE users SET google_id = $1 WHERE id = $2', [insforgeId, user.id]);
+        await pool.query('UPDATE app_users SET google_id = $1 WHERE id = $2', [insforgeId, user.id]);
       }
     } else {
       const base = email.split('@')[0].replace(/[^a-z0-9_]/gi, '').toLowerCase().slice(0, 20);
       const suffix = Math.random().toString(36).slice(2, 6);
       const username = `${base}_${suffix}`;
+      const placeholderHash = '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiiGTMwFYjHi';
       const { rows } = await pool.query(
-        'INSERT INTO app_users (username, password_hash, email, google_id) VALUES ($1, NULL, $2, $3) RETURNING id, username, email',
-        [username, email, insforgeId]
+        'INSERT INTO app_users (username, password, password_hash, email, google_id) VALUES ($1, $2, $2, $3, $4) RETURNING id, username, email',
+        [username, placeholderHash, email, insforgeId]
       );
       user = rows[0];
     }
 
     // Seed default categories for new/existing user if needed
     
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Seed default categories for new/existing user if needed
+    await seedUserCategories(user.id);
 
     const token = jwt.sign(
       { id: user.id, username: user.username },

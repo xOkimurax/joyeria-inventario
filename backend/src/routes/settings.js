@@ -26,7 +26,7 @@ router.put('/password', async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Contraseña actual incorrecta' });
 
     const hash = await bcrypt.hash(new_password, 12);
-    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
+    await pool.query('UPDATE app_users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
 
     res.json({ message: 'Contraseña actualizada correctamente' });
   } catch (err) {
@@ -47,7 +47,7 @@ router.put('/email', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      'UPDATE users SET email = $1 WHERE id = $2 RETURNING id, username, email',
+      'UPDATE app_users SET email = $1 WHERE id = $2 RETURNING id, username, email',
       [email.toLowerCase(), req.user.id]
     );
     res.json(rows[0]);
