@@ -9,7 +9,6 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<Layout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
@@ -19,10 +18,6 @@ function App() {
       </BrowserRouter>
     </AuthProvider>
   );
-}
-
-function AuthCallback() {
-  return <div>Procesando login...</div>;
 }
 
 export default App;
