@@ -28,17 +28,5 @@ export async function runMigrations() {
 }
 
 export async function seedUserCategories(userId) {
-  const { rows } = await pool.query('SELECT COUNT(*) FROM categories WHERE user_id = $1', [userId]);
-  if (parseInt(rows[0].count) > 0) return;
-
-  await pool.query(`
-    INSERT INTO categories (name, description, user_id) VALUES
-    ('Anillos', 'Anillos de todo tipo', $1),
-    ('Collares', 'Collares y cadenas', $1),
-    ('Pulseras', 'Pulseras y brazaletes', $1),
-    ('Aretes', 'Aretes y pendientes', $1),
-    ('Relojes', 'Relojes de lujo', $1),
-    ('Broches', 'Broches y prendedores', $1),
-    ('Otros', 'Otros artículos de joyería', $1)
-  `, [userId]);
+  // Categories table from InsForge doesn't have user_id, skip seeding
 }
