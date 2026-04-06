@@ -18,7 +18,7 @@ router.put('/password', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      'SELECT password_hash FROM users WHERE id = $1', [req.user.id]
+      'SELECT password_hash FROM joyeria_users WHERE id = $1', [req.user.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
 
@@ -69,7 +69,7 @@ router.delete('/account', async (req, res) => {
     await client.query('DELETE FROM categories WHERE user_id = $1', [req.user.id]);
     await client.query('DELETE FROM suppliers WHERE user_id = $1', [req.user.id]);
     await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [req.user.id]);
-    await client.query('DELETE FROM users WHERE id = $1', [req.user.id]);
+    await client.query('DELETE FROM joyeria_users WHERE id = $1', [req.user.id]);
 
     await client.query('COMMIT');
     res.json({ message: 'Cuenta eliminada correctamente' });

@@ -6,11 +6,12 @@ export async function runMigrations() {
     await client.query('BEGIN');
 
     await client.query(`
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE IF NOT EXISTS joyeria_users (
         id SERIAL PRIMARY KEY,
         username VARCHAR(50) UNIQUE NOT NULL,
         password_hash VARCHAR(255),
         email VARCHAR(255),
+        google_id VARCHAR(255) UNIQUE,
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
@@ -18,7 +19,7 @@ export async function runMigrations() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS password_reset_tokens (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES joyeria_users(id) ON DELETE CASCADE,
         token VARCHAR(255) NOT NULL,
         expires_at TIMESTAMP NOT NULL,
         used BOOLEAN DEFAULT FALSE,
@@ -31,7 +32,7 @@ export async function runMigrations() {
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         description TEXT,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES joyeria_users(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
@@ -45,7 +46,7 @@ export async function runMigrations() {
         phone VARCHAR(50),
         address TEXT,
         notes TEXT,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES joyeria_users(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
@@ -65,7 +66,7 @@ export async function runMigrations() {
         image_url TEXT,
         supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL,
         sku VARCHAR(100),
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES joyeria_users(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
@@ -81,29 +82,9 @@ export async function runMigrations() {
         total DECIMAL(12,2) NOT NULL,
         client_name VARCHAR(200),
         notes TEXT,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES joyeria_users(id) ON DELETE CASCADE,
         sold_at TIMESTAMP DEFAULT NOW()
       )
-    `);
-
-    // Add missing columns to existing tables (idempotent)
-    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE`);
-    await client.query(`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`);
-    await client.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`);
-    await client.query(`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`);
-    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`);
-    await client.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`);
-
-    // Make SKU unique per user (drop global unique if exists, add partial unique)
-    await client.query(`ALTER TABLE products DROP CONSTRAINT IF EXISTS products_sku_key`);
-    await client.query(`
-      DO $$ BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM pg_indexes WHERE indexname = 'products_sku_user_unique'
-        ) THEN
-          CREATE UNIQUE INDEX products_sku_user_unique ON products(sku, user_id) WHERE sku IS NOT NULL;
-        END IF;
-      END $$;
     `);
 
     await client.query('COMMIT');
@@ -117,7 +98,6 @@ export async function runMigrations() {
   }
 }
 
-// Seed default categories for a new user
 export async function seedUserCategories(userId) {
   const { rows } = await pool.query('SELECT COUNT(*) FROM categories WHERE user_id = $1', [userId]);
   if (parseInt(rows[0].count) > 0) return;

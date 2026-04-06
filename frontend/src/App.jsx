@@ -22,32 +22,35 @@ function ProtectedRoute({ children }) {
       </div>
     );
   }
-  return user ? children : <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
 }
 
-function PublicRoute({ children }) {
-  const { user, loading } = useAuth();
-  if (loading) return null;
-  return user ? <Navigate to="/dashboard" replace /> : children;
-}
-
-export default function App() {
+function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="inventory" element={<Inventory />} />
-          <Route path="sales" element={<Sales />} />
-          <Route path="suppliers" element={<Suppliers />} />
-          <Route path="categories" element={<Categories />} />
-          <Route path="settings" element={<Settings />} />
+          <Route path="inventario" element={<Inventory />} />
+          <Route path="ventas" element={<Sales />} />
+          <Route path="proveedores" element={<Suppliers />} />
+          <Route path="categorias" element={<Categories />} />
+          <Route path="configuracion" element={<Settings />} />
         </Route>
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </AuthProvider>
   );
 }
+
+export default App;

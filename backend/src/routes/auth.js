@@ -23,14 +23,14 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username.toLowerCase()]);
+    const existing = await pool.query('SELECT id FROM joyeria_users WHERE username = $1', [username.toLowerCase()]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: 'Ese username ya está en uso' });
     }
 
     const hash = await bcrypt.hash(password, 12);
     const { rows } = await pool.query(
-      'INSERT INTO users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING id, username, email',
+      'INSERT INTO joyeria_users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING id, username, email',
       [username.toLowerCase(), hash, email || null]
     );
 
@@ -59,7 +59,7 @@ router.post('/login', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      'SELECT id, username, password_hash, email FROM users WHERE username = $1',
+      'SELECT id, username, password_hash, email FROM joyeria_users WHERE username = $1',
       [username.toLowerCase()]
     );
     if (rows.length === 0) {
@@ -93,7 +93,7 @@ router.post('/forgot-password', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      'SELECT id, email FROM users WHERE username = $1',
+      'SELECT id, email FROM joyeria_users WHERE username = $1',
       [username.toLowerCase()]
     );
 
@@ -158,7 +158,7 @@ router.post('/reset-password', async (req, res) => {
 
   try {
     const { rows: userRows } = await pool.query(
-      'SELECT id FROM users WHERE username = $1', [username.toLowerCase()]
+      'SELECT id FROM joyeria_users WHERE username = $1', [username.toLowerCase()]
     );
     if (userRows.length === 0) {
       return res.status(400).json({ error: 'Usuario o código incorrecto' });
@@ -216,7 +216,7 @@ router.post('/insforge-callback', async (req, res) => {
 
     // Find or create local user by insforge_id or email
     const existing = await pool.query(
-      'SELECT id, username, email, google_id FROM users WHERE google_id = $1 OR (email = $2 AND email IS NOT NULL)',
+      'SELECT id, username, email, google_id FROM joyeria_users WHERE google_id = $1 OR (email = $2 AND email IS NOT NULL)',
       [insforgeId, email]
     );
 
@@ -231,7 +231,7 @@ router.post('/insforge-callback', async (req, res) => {
       const suffix = Math.random().toString(36).slice(2, 6);
       const username = `${base}_${suffix}`;
       const { rows } = await pool.query(
-        'INSERT INTO users (username, password_hash, email, google_id) VALUES ($1, NULL, $2, $3) RETURNING id, username, email',
+        'INSERT INTO joyeria_users (username, password_hash, email, google_id) VALUES ($1, NULL, $2, $3) RETURNING id, username, email',
         [username, email, insforgeId]
       );
       user = rows[0];
@@ -257,7 +257,7 @@ router.post('/insforge-callback', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT id, username, email FROM users WHERE id = $1', [req.user.id]
+      'SELECT id, username, email FROM joyeria_users WHERE id = $1', [req.user.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json(rows[0]);
